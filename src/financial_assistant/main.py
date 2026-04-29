@@ -15,9 +15,11 @@ from financial_assistant.auth_middleware import (
     SessionAuthMiddleware,
 )
 from financial_assistant.logging_config import configure_logging
+from financial_assistant.mcp_server import router as mcp_router
 from financial_assistant.middleware import ErrorLoggingMiddleware, RequestContextMiddleware
 from financial_assistant.rate_limit import RateLimitMiddleware
 from financial_assistant.tracing import init_tracing
+from financial_assistant.upload import router as upload_router
 
 
 @asynccontextmanager
@@ -48,6 +50,8 @@ app.add_middleware(MCPApiKeyMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 app.include_router(auth_router)
+app.include_router(upload_router)
+app.include_router(mcp_router)
 
 
 @app.get("/health")
