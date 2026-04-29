@@ -1,0 +1,38 @@
+{
+  "name": "Financial Hygiene Assistant",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/app",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "python.formatting.provider": "black",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [8000, 5432],
+  "portsAttributes": {
+    "8000": { "label": "App (FastAPI)" },
+    "5432": { "label": "Postgres" }
+  },
+
+  "postStartCommand": "pip install -e '.[dev]' -q",
+
+  "remoteUser": "root"
+}

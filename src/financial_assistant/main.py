@@ -4,13 +4,34 @@ Start with: uvicorn financial_assistant.main:app --reload
 Or via entry point: financial-assistant
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
+from financial_assistant.logging_config import configure_logging
+from financial_assistant.middleware import ErrorLoggingMiddleware, RequestContextMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Config imported here so startup fails fast if required vars missing
+    from financial_assistant.config import get_settings
+
+    s = get_settings()
+    configure_logging(s.log_level)
+    yield
+
 
 app = FastAPI(
     title="Financial Hygiene Assistant",
     version="0.1.0",
     description="MCP server exposing personal finance tools to AI agents.",
+    lifespan=lifespan,
 )
+
+# Outermost first — ErrorLogging wraps everything
+app.add_middleware(ErrorLoggingMiddleware)
+app.add_middleware(RequestContextMiddleware)
 
 
 @app.get("/health")
