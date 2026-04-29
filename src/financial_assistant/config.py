@@ -1,7 +1,8 @@
 """Application configuration loaded from environment variables.
 
 Usage:
-    from financial_assistant.config import settings
+    from financial_assistant.config import get_settings
+    settings = get_settings()
 """
 
 from functools import lru_cache
@@ -70,6 +71,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-
-
-settings = get_settings()

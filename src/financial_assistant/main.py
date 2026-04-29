@@ -8,6 +8,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from financial_assistant.auth import router as auth_router
+from financial_assistant.auth_middleware import (
+    CsrfMiddleware,
+    MCPApiKeyMiddleware,
+    SessionAuthMiddleware,
+)
 from financial_assistant.logging_config import configure_logging
 from financial_assistant.middleware import ErrorLoggingMiddleware, RequestContextMiddleware
 
@@ -29,9 +35,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Outermost first — ErrorLogging wraps everything
+# Middleware added outermost-last (Starlette wraps in reverse order).
+# Execution order on request: ErrorLogging → RequestContext → SessionAuth → Csrf → MCPApiKey → route
 app.add_middleware(ErrorLoggingMiddleware)
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(SessionAuthMiddleware)
+app.add_middleware(CsrfMiddleware)
+app.add_middleware(MCPApiKeyMiddleware)
+
+app.include_router(auth_router)
 
 
 @app.get("/health")
