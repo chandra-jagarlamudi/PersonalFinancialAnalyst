@@ -16,6 +16,8 @@ from financial_assistant.auth_middleware import (
 )
 from financial_assistant.logging_config import configure_logging
 from financial_assistant.middleware import ErrorLoggingMiddleware, RequestContextMiddleware
+from financial_assistant.rate_limit import RateLimitMiddleware
+from financial_assistant.tracing import init_tracing
 
 
 @asynccontextmanager
@@ -25,6 +27,7 @@ async def lifespan(app: FastAPI):
 
     s = get_settings()
     configure_logging(s.log_level)
+    init_tracing(s.langsmith_api_key, s.langsmith_project)
     yield
 
 
@@ -42,6 +45,7 @@ app.add_middleware(RequestContextMiddleware)
 app.add_middleware(SessionAuthMiddleware)
 app.add_middleware(CsrfMiddleware)
 app.add_middleware(MCPApiKeyMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 app.include_router(auth_router)
 

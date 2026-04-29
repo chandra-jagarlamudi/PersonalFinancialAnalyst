@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     langsmith_project: str = "financial-assistant"
     log_level: str = "INFO"
     disable_auth: bool = False
+    rate_limit_per_min: int = 60
 
     @field_validator("log_level")
     @classmethod
