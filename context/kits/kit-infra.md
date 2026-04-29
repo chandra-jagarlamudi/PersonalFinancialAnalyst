@@ -35,7 +35,8 @@ A `.devcontainer/devcontainer.json` configuration enables VS Code / GitHub Codes
 
 ### R4 — Environment Configuration
 All secrets and environment-specific values loaded from environment variables; no hardcoded values.
-- Required vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_USER_EMAIL`, `LANGSMITH_API_KEY`, `ANTHROPIC_API_KEY`
+- Required vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_USER_EMAIL`, `LANGSMITH_API_KEY`, `ANTHROPIC_API_KEY`, `MCP_API_KEY`
+- Optional vars (have defaults): `SESSION_EXPIRY_DAYS` (default 30), `ANTHROPIC_MODEL`, `LANGSMITH_PROJECT`, `LOG_LEVEL`, `DISABLE_AUTH` (default false)
 - `.env.example` documents all required vars with descriptions; no real values
 - `.env` is gitignored
 - Acceptance: Server fails fast with clear error if any required var is missing

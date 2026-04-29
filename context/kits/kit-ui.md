@@ -12,14 +12,14 @@ React + Vite single-page application providing browser-based access to all syste
 ## Requirements
 
 ### R1 — Auth Flow
-UI drives the Google OAuth 2.0 login and bearer token lifecycle.
+UI drives the Google OAuth 2.0 login and session lifecycle via HttpOnly cookie.
 - Unauthenticated users see login page with "Sign in with Google" button
 - Button triggers redirect to `GET /auth/login` (server initiates OAuth flow)
-- After successful OAuth callback, server returns bearer token; UI stores it in `localStorage`
-- Token attached as `Authorization: Bearer <token>` on all subsequent API requests
-- Expired or revoked token → silent redirect to login page (no error flash)
-- "Sign out" button calls `POST /auth/logout` then clears `localStorage` token
-- Acceptance: Full browser login flow completes; subsequent API calls succeed; logout invalidates token
+- After OAuth callback, server sets session cookie and redirects browser to app root — no token visible to JavaScript
+- All API requests use `credentials: 'include'` so browser automatically sends session cookie
+- On 401 response: UI redirects to login page (no localStorage to clear)
+- "Sign out" button calls `POST /auth/logout` (session cookie sent automatically); server deletes session and clears cookie; UI redirects to login page
+- Acceptance: Full browser login flow completes; subsequent API calls succeed with cookie; logout invalidates session; no credential stored in localStorage or accessible to JavaScript
 
 ### R2 — Auth Bypass Toggle
 Development mode allows disabling authentication for faster local iteration.
@@ -84,7 +84,7 @@ Conversational interface for ad-hoc financial questions.
 Consistent app shell across all pages.
 - Sidebar or top nav: Upload, Summary, Transactions, Chat
 - Active route highlighted in nav
-- User email shown in header (from stored token claims)
+- User email shown in header, fetched from `GET /auth/me` on app load (server reads active session and returns `{ email }`)
 - "Dev mode" banner (R2) always visible at top when active
 - Responsive: usable on laptop viewport (min 1024px); no mobile requirement
 - Acceptance: Navigating between all sections works without page reload; active section highlighted
@@ -92,15 +92,17 @@ Consistent app shell across all pages.
 ### R9 — API Client Layer
 All server communication goes through a typed client module.
 - Single module wraps all `fetch` calls to FastAPI endpoints
-- Automatically attaches `Authorization` header from `localStorage`
-- On 401: clears token, redirects to login
+- All requests use `credentials: 'include'` so session cookie is sent automatically by browser
+- All state-changing requests (POST) include `X-CSRF-Token` header (value read from CSRF cookie set by server)
+- On 401: redirects to login page
 - On network error: surfaces user-facing toast notification
 - No raw `fetch` calls outside this module
-- Acceptance: Removing token from localStorage mid-session → next API call redirects to login
+- Acceptance: Valid session → API calls succeed; 401 response → redirect to login; state-changing requests include CSRF header
 
 ## HTTP Endpoints Required from Server (non-MCP)
 UI needs these FastAPI endpoints (not in kit-mcp):
 - `GET /auth/status` → `{ auth_enabled: boolean }`
+- `GET /auth/me` → `{ email: string }` — returns authenticated user's email from active session
 - `POST /tools/summarize_month` → proxies to analytics, returns text
 - `POST /tools/find_unusual_spend` → proxies to analytics, returns text
 - `POST /tools/list_recurring_subscriptions` → proxies to analytics, returns structured JSON
@@ -108,7 +110,7 @@ UI needs these FastAPI endpoints (not in kit-mcp):
 - `POST /chat` → streaming SSE response (see kit-analytics R7)
 
 ## Cross-References
-- auth: login flow, token storage, bypass toggle
+- auth: login flow, session cookie, bypass toggle, CSRF protection
 - analytics: tool outputs + chat endpoint
 - ingestion: upload endpoint
 - storage: transaction list endpoint reads from DB

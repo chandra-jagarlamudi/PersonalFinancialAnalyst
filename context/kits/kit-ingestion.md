@@ -65,15 +65,17 @@ All parsed transactions converted to canonical schema before storage.
 - Duplicate detection within single upload: same date + amount + description → deduplicated
 - Acceptance: Two identical rows in one CSV → only one transaction stored
 
-### R8 — Deduplication Across Uploads
-Transactions from re-uploaded or overlapping statements not duplicated in storage.
-- File-level dedup via SHA-256 hash (R1)
-- Row-level dedup: transaction with same `source_bank` + `date` + `amount` + `raw_description` already in DB → skipped
-- Dedup stats returned in upload response: `{ duplicates_skipped }`
-- Acceptance: Upload same statement twice → second upload returns 409; upload overlapping statements → overlapping transactions not duplicated
+### R8 — Atomic Deduplication Across Uploads
+Transactions from re-uploaded or overlapping statements not duplicated in storage; entire write is atomic.
+- Calls storage's `insert_statement_and_transactions()` (kit-storage.md R5) as the single write operation
+- If storage returns `None` (statement file_hash already exists): ingestion returns 409 to caller immediately
+- If storage returns `(attempted, inserted)`: upload response includes `{ statement_id, bank_detected, transaction_count, duplicates_skipped, period_start, period_end }` where `duplicates_skipped = attempted − inserted`
+- No pre-check query before write; atomicity and dedup enforced entirely by storage layer
+- Concurrent uploads of same file: exactly one succeeds; other receives 409. No partial state possible.
+- Acceptance: Upload same file concurrently from two clients → exactly one receives 200, other receives 409; DB has exactly one statement row and no duplicate transactions
 
 ## Cross-References
-- storage: writes via `insert_transactions`; reads `get_statement_by_hash` for dedup
-- auth: upload endpoint protected by bearer token middleware
+- storage: writes via atomic insert_transactions; ON CONFLICT handles dedup at DB layer
+- auth: upload endpoint protected by session cookie middleware
 - observability: upload traces to LangSmith; request logged with `request_id`
 - infra: no special infra needs beyond app container

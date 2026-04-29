@@ -19,13 +19,15 @@ Every HTTP request produces a structured log entry.
 - Log level configurable via `LOG_LEVEL` env var (default: INFO)
 - Acceptance: `curl` to any endpoint; log line appears with all required fields; `latency_ms` is accurate
 
-### R2 — Per-Token Rate Limiting
-API access rate-limited per bearer token to prevent runaway agent loops.
-- Limit configurable via env var (default: 60 requests/minute per token)
+### R2 — Per-Client Rate Limiting
+API access rate-limited per client identity to prevent runaway agent loops.
+- Browser HTTP endpoints: rate limit key = session ID (from session cookie)
+- MCP endpoints: rate limit key = MCP API key value
+- Limit configurable via env var (default: 60 requests/minute per key)
 - Exceeding limit returns 429 with `Retry-After` header
 - Limit enforced in-memory with sliding window algorithm
 - Rate limit status included in response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
-- Acceptance: 61st request within 60s window returns 429; first request of next window succeeds
+- Acceptance: 61st request within 60s window from same client returns 429; first request of next window succeeds
 
 ### R3 — LangSmith MCP Tool Tracing
 Every MCP tool invocation traced in LangSmith.

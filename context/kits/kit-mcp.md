@@ -34,11 +34,11 @@ Tool calls with invalid inputs return MCP error, not unhandled exception.
 - Acceptance: Call `summarize_month` without required `month` param → error response, not 500
 
 ### R4 — Tool Call Authentication
-MCP SSE connection requires valid bearer token.
-- Bearer token passed in `Authorization` header on `GET /sse` connection request
-- Invalid token → 401 before SSE stream established
-- Token validated on each `POST /messages` request (not just on connect)
-- Acceptance: Connecting without token returns 401; valid token connects successfully
+MCP SSE connection requires the pre-shared MCP API key (see kit-auth.md R8).
+- `Authorization: Bearer <MCP_API_KEY>` header required on `GET /sse` connection request
+- Invalid or missing key → 401 before SSE stream established
+- Key validated on each `POST /messages` request (not just on connect)
+- Acceptance: Connecting without key returns 401; correct MCP_API_KEY connects successfully
 
 ### R5 — Tool Error Handling
 Tool execution errors surfaced as MCP error responses, not dropped.
@@ -56,5 +56,5 @@ Server exposes correct metadata via MCP `initialize` handshake.
 
 ## Cross-References
 - analytics: tool handlers delegate to analytics functions
-- auth: bearer token validated by auth middleware on SSE connect and each message
+- auth: MCP API key (kit-auth.md R8) validated on SSE connect and each message
 - observability: each tool invocation wrapped in LangSmith trace; request logged
