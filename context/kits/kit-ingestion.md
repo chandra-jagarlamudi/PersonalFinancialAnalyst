@@ -75,7 +75,7 @@ Transactions from re-uploaded or overlapping statements not duplicated in storag
 - Acceptance: Upload same file concurrently from two clients → exactly one receives 200, other receives 409; DB has exactly one statement row and no duplicate transactions
 
 ## Cross-References
-- storage: writes via atomic insert_transactions; ON CONFLICT handles dedup at DB layer
+- storage: writes via `insert_statement_and_transactions`; deduplication enforced at storage layer
 - auth: upload endpoint protected by session cookie middleware
 - observability: upload traces to LangSmith; request logged with `request_id`
 - infra: no special infra needs beyond app container

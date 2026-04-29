@@ -61,7 +61,7 @@ Server-side authentication sessions persisted in Postgres for stateless server p
 - Acceptance: Insert session row; query with valid id and unexpired time returns row; query with expired time or unknown id returns no rows
 
 ## Cross-References
-- ingestion: writes via `insert_transactions`
+- ingestion: writes via `insert_statement_and_transactions` (atomic) and `insert_transactions`
 - analytics: reads via `get_transactions`, `get_monthly_totals`
 - auth: sessions table (R6) used by auth middleware for session validation and logout
 - infra: Postgres container and `DATABASE_URL` env var

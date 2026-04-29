@@ -91,7 +91,7 @@ Consistent app shell across all pages.
 
 ### R9 — API Client Layer
 All server communication goes through a typed client module.
-- Single module wraps all `fetch` calls to FastAPI endpoints
+- Single module wraps all `fetch` calls to server HTTP endpoints
 - All requests use `credentials: 'include'` so session cookie is sent automatically by browser
 - All state-changing requests (POST) include `X-CSRF-Token` header (value read from CSRF cookie set by server)
 - On 401: redirects to login page
@@ -100,7 +100,7 @@ All server communication goes through a typed client module.
 - Acceptance: Valid session → API calls succeed; 401 response → redirect to login; state-changing requests include CSRF header
 
 ## HTTP Endpoints Required from Server (non-MCP)
-UI needs these FastAPI endpoints (not in kit-mcp):
+UI needs these server HTTP endpoints (not MCP protocol):
 - `GET /auth/status` → `{ auth_enabled: boolean }`
 - `GET /auth/me` → `{ email: string }` — returns authenticated user's email from active session
 - `POST /tools/summarize_month` → proxies to analytics, returns text

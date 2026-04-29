@@ -72,7 +72,7 @@ Natural-language question answering for the browser UI via streaming HTTP.
 - Sends question + history + transaction context to Claude
 - Response streamed token-by-token as `text/event-stream` SSE
 - Last 6 turns of `history` included for conversational continuity; older turns dropped
-- Endpoint protected by bearer token middleware (same as all other endpoints)
+- Endpoint is browser-driven; protected by session cookie middleware + CSRF (see kit-auth.md R4, R6)
 - Prompt caching applied to system prompt + transaction context block
 - Acceptance: `POST /chat` with question about last month's spending → SSE stream returns markdown answer referencing real transactions
 
