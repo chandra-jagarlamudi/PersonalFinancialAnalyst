@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from financial_assistant.api import router as api_router
 from financial_assistant.auth import router as auth_router
 from financial_assistant.auth_middleware import (
     CsrfMiddleware,
@@ -52,6 +53,7 @@ app.add_middleware(RateLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(mcp_router)
+app.include_router(api_router)
 
 
 @app.get("/health")
