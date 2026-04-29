@@ -26,10 +26,11 @@
     }
   },
 
-  "forwardPorts": [8000, 5432],
+  "forwardPorts": [8000, 5432, 5173],
   "portsAttributes": {
     "8000": { "label": "App (FastAPI)" },
-    "5432": { "label": "Postgres" }
+    "5432": { "label": "Postgres" },
+    "5173": { "label": "Frontend (Vite)" }
   },
 
   "postStartCommand": "pip install -e '.[dev]' -q",
