@@ -18,7 +18,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
 | 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
 | 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
-| 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | Planned |
+| 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | **Implemented** |
 | 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | Planned |
 | 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
 
@@ -27,6 +27,8 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 **Slice 4** ([issue #6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6)): [`backend/`](backend/) FastAPI app with `POST /ingest/csv` (multipart form field `account_id` + CSV `file`, **max 10 MiB** per upload), deterministic `dedupe_fingerprint` (SHA-256) and a Postgres `UNIQUE` constraint so replays increment `skipped_duplicates`. CSV columns: `transaction_date`, `amount`, `description`; optional `posted_date`, `currency` (default USD). Schema bootstrap runs once at API startup (not per request). Compose service **`api`** listens on `127.0.0.1:${API_PORT:-8000}` (`GET /health`). Tests: install deps under `backend/` and run `make test-backend` with `DATABASE_URL` pointing at the Compose database.
 
 **Slice 6** ([issue #8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8)): Envelope budgets per calendar month and category. **`categories`** table (`slug`, `name`) with `POST /categories` and `GET /categories`. **`budgets`** rows keyed by `(category_id, month)` where `month` is `YYYY-MM-01`; `PUT /budgets/{year_month}` upserts `{items: [{category_id, amount}]}`, `GET /budgets/{year_month}` lists caps. **`GET /budgets/{year_month}/status`** sums expenses (`amount < 0`) from **`transactions.category_id`** MTD (optional `as_of` query) and returns linear **projected** month spend plus remaining amounts. **`POST /budgets/{year_month}/suggest`** proposes caps from prior-window expense totals divided by `lookback_months` (default 6). Categorization rules remain slice 7; link spending by setting `transactions.category_id`.
+
+**Slice 10** ([issue #12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12)): Embedded **MCP-shaped** read tools plus **SSE streaming chat**. **`GET /chat/tools`** returns JSON-schema manifests (`ledger_summary`: aggregate counts and expense/income totals, optional `account_id`). **`POST /chat/stream`** accepts `{ "message": "..." }` and emits **`text/event-stream`** frames (`tool_call`, `tool_result`, `delta`, `done`). The MVP planner is **deterministic** (keyword routing); swap-in LLM planner later without changing tool contracts.
 
 ---
 
