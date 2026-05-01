@@ -11,6 +11,16 @@ from decimal import Decimal
 from pfa.recurring import TxRow
 
 
+def expense_first_seen_by_merchant(expense_rows: list[TxRow]) -> dict[str, datetime.date]:
+    """Earliest expense date per merchant from the given rows (full-history scope for that query)."""
+    out: dict[str, datetime.date] = {}
+    for t in sorted((x for x in expense_rows if x.amount < 0), key=lambda x: x.transaction_date):
+        m = t.description_normalized
+        if m not in out:
+            out[m] = t.transaction_date
+    return out
+
+
 @dataclass
 class AnomalySignal:
     kind: str  # large_spend | new_merchant | monthly_spike
@@ -48,10 +58,11 @@ def _month_totals_by_merchant(
 
 
 def detect_anomalies(
-    transactions: list[TxRow],
+    expenses_in_window: list[TxRow],
     *,
     as_of: datetime.date,
     lookback_days: int = 120,
+    first_seen_by_merchant: dict[str, datetime.date],
     large_vs_median_multiplier: Decimal = Decimal("3"),
     new_merchant_days: int = 14,
     monthly_spike_ratio: Decimal = Decimal("2"),
@@ -64,27 +75,16 @@ def detect_anomalies(
     if new_merchant_days < 1:
         raise ValueError("new_merchant_days must be >= 1")
 
-    window_start = as_of - datetime.timedelta(days=lookback_days)
-    in_window = [t for t in transactions if window_start <= t.transaction_date <= as_of]
-    expenses = [t for t in in_window if t.amount < 0]
+    expenses = [t for t in expenses_in_window if t.amount < 0]
 
     signals: list[AnomalySignal] = []
     by_merchant: dict[str, list[TxRow]] = defaultdict(list)
     for t in expenses:
         by_merchant[t.description_normalized].append(t)
 
-    # First-seen merchant (full history in provided rows)
-    first_seen: dict[str, datetime.date] = {}
-    for t in sorted(
-        (t for t in transactions if t.amount < 0), key=lambda x: x.transaction_date
-    ):
-        m = t.description_normalized
-        if m not in first_seen:
-            first_seen[m] = t.transaction_date
-
     for merchant, txs_m in by_merchant.items():
         txs_m = sorted(txs_m, key=lambda x: x.transaction_date)
-        fs = first_seen.get(merchant)
+        fs = first_seen_by_merchant.get(merchant)
         if fs is not None and (as_of - fs).days <= new_merchant_days:
             signals.append(
                 AnomalySignal(
@@ -134,7 +134,11 @@ def detect_anomalies(
                 AnomalySignal(
                     kind="monthly_spike",
                     merchant=merchant,
-                    detail=f"{y}-{mo:02d} spend {last_total} > {monthly_spike_ratio}×prior_median {prior_med:.4f}",
+                    detail=(
+                        f"{y}-{mo:02d}: monthly expense magnitude (sum of abs amounts) "
+                        f"{last_total} > {monthly_spike_ratio}×prior median {prior_med:.4f}; "
+                        f"amount uses ledger convention (negative = outflow, abs matches magnitude)"
+                    ),
                     transaction_id=None,
                     transaction_date=datetime.date(y, mo, last_day),
                     amount=-last_total,
