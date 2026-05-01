@@ -74,7 +74,46 @@ You can: run the stack locally (see slice [#2](https://github.com/chandra-jagarl
 
 ## Getting started
 
-Until the repo contains the full app again, follow the **vertical slices** in order (especially **#2** for Compose + Postgres + volumes). When `docker compose` and env templates land, this section should be updated with exact commands—tracked in [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2).
+### Local database (slice [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2))
+
+Prerequisites: [Docker](https://docs.docker.com/get-docker/) with Compose v2.
+
+1. Copy env template and adjust passwords if you like:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Ensure the raw-statement bind-mount directory exists (ignored by git):
+
+   ```bash
+   mkdir -p data/raw-statements
+   ```
+
+3. Start Postgres (named volume `pgdata` keeps database files across restarts):
+
+   ```bash
+   docker compose --env-file .env up -d
+   ```
+
+   Compose waits on the service healthcheck when your CLI supports `up --wait`; otherwise wait until `docker compose ps` shows `healthy` for `db`.
+
+4. Connection string for a backend on the host is **`DATABASE_URL`** in `.env` (defaults to `127.0.0.1` and `POSTGRES_PORT`).
+
+5. Verify infra (config, connectivity, persistence across `db` restart, raw mount):
+
+   ```bash
+   make verify-infra
+   ```
+
+   Optional: `make verify-infra` runs `./scripts/verify-infra.sh`, which uses `.env.example` and ends with `docker compose down` (volumes kept). To remove the Postgres volume too: `./scripts/verify-infra.sh --teardown-volumes`.
+
+**Teardown**
+
+- Stop containers but **keep** database volume: `docker compose down`
+- Stop and **delete** Postgres data volume: `docker compose down -v`
+
+Until the rest of the app lands, continue with the **vertical slices** in order (next: [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) auth + shell).
 
 ---
 
