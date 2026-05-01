@@ -86,3 +86,14 @@ CREATE INDEX IF NOT EXISTS idx_budgets_month ON budgets(month);
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_transactions_category_date ON transactions(category_id, transaction_date);
+
+-- Slice 7: deterministic categorization rules.
+CREATE TABLE IF NOT EXISTS categorization_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  pattern TEXT NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 100,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cat_rules_priority ON categorization_rules(priority);
