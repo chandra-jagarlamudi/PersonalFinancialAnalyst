@@ -94,7 +94,7 @@ From the repository root:
    mkdir -p data/raw-statements
    ```
 
-3. Start Postgres. Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync:
+3. Start Postgres. Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync. The Compose **project name** defaults to this folder’s name (no fixed `name:` in [`compose.yaml`](compose.yaml)), so separate clones keep distinct containers/volumes. Override with [`docker compose --project-name …`](https://docs.docker.com/compose/how-tos/project-name/) if needed.
 
    ```bash
    docker compose up -d
@@ -114,7 +114,7 @@ From the repository root:
    make verify-infra
    ```
 
-   This runs [`scripts/verify-infra.sh`](scripts/verify-infra.sh) against **`.env.example`**, then **`docker compose down`** without `-v` so the **`pgdata`** volume remains. To drop volumes after the run: `./scripts/verify-infra.sh --teardown-volumes`.
+   This runs [`scripts/verify-infra.sh`](scripts/verify-infra.sh) against **`.env.example`**. **Teardown:** if **`db` was not running** when the script started, it finishes with **`docker compose down`** (no `-v`, **`pgdata`** kept). If **`db` was already up**, the script **leaves your stack running**—only inspects it—so you are not surprised by missing teardown. To drop volumes when the script does tear down: `./scripts/verify-infra.sh --teardown-volumes`.
 
 **Teardown**
 
