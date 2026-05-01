@@ -31,8 +31,12 @@ def requires_hitl(confidence: Decimal, *, threshold: Decimal = HITL_CONFIDENCE_T
     return confidence < threshold
 
 
-def outcome_requires_hitl(outcome: TargetedPdfParseOutcome) -> bool:
+def outcome_requires_hitl(
+    outcome: TargetedPdfParseOutcome,
+    *,
+    threshold: Decimal = HITL_CONFIDENCE_THRESHOLD,
+) -> bool:
     """Human review when confidence is low or the parser produced no rows to persist."""
-    if outcome.confidence < HITL_CONFIDENCE_THRESHOLD:
+    if requires_hitl(outcome.confidence, threshold=threshold):
         return True
     return len(outcome.rows) == 0

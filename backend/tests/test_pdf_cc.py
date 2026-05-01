@@ -42,3 +42,20 @@ def test_outcome_allows_auto_when_confident_and_rows():
 def test_requires_hitl_threshold_boundary():
     assert requires_hitl(HITL_CONFIDENCE_THRESHOLD - Decimal("0.01")) is True
     assert requires_hitl(HITL_CONFIDENCE_THRESHOLD) is False
+
+
+def test_outcome_requires_hitl_honors_threshold_override():
+    o = TargetedPdfParseOutcome(
+        (
+            ParsedCsvRow(
+                transaction_date=datetime.date(2025, 1, 1),
+                posted_date=None,
+                amount=Decimal("-1"),
+                currency="USD",
+                description_raw="x",
+            ),
+        ),
+        Decimal("0.80"),
+        "test",
+    )
+    assert outcome_requires_hitl(o, threshold=Decimal("0.75")) is False

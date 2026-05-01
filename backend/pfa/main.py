@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -42,7 +43,7 @@ class IngestResponse(BaseModel):
 class PdfIngestResponse(BaseModel):
     inserted: int
     skipped_duplicates: int = 0
-    confidence: str
+    confidence: Decimal
     requires_hitl: bool
     parser_notes: str
     duplicate_statement: bool = False
@@ -164,7 +165,7 @@ def ingest_pdf(
     return PdfIngestResponse(
         inserted=0,
         skipped_duplicates=0,
-        confidence=str(outcome.confidence),
+        confidence=outcome.confidence,
         requires_hitl=hitl,
         parser_notes=outcome.notes,
         statement_id=None,
