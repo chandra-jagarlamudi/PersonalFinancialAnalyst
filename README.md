@@ -8,7 +8,7 @@ Self-hosted personal finance stack: ingest statements into PostgreSQL, drive bud
 
 ---
 
-Slice **0** (Postgres via Docker Compose) is tracked in **[Issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2)**—merge the companion PR into `master` for **`docker compose up`** and **`make verify-infra`**.
+Slice **0** (Postgres via Docker Compose) is tracked in **[Issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2)**. Implementations and PRs are linked from that issue; use **`main`** (default branch) as the source of truth for **`compose.yaml`**, **`.env.example`**, and **`docker compose up`** once those files exist in your checkout.
 
 ## Disclaimer
 
