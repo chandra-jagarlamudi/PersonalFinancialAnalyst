@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import Response
 
@@ -165,11 +165,15 @@ def get_budget_status(
 
 
 @router.post("/budgets/{year_month}/suggest", response_model=list[SuggestionOut])
-def post_suggest(year_month: str, body: SuggestBody = SuggestBody()):
+def post_suggest(
+    year_month: str,
+    body: Annotated[SuggestBody | None, Body()] = None,
+):
     try:
         ms = parse_year_month(year_month)
     except BudgetServiceError as e:
         raise _svc_err(e) from e
+    lookback = body.lookback_months if body is not None else 6
     with connect() as conn:
-        rows = suggest_budget_amounts(conn, ms, body.lookback_months)
+        rows = suggest_budget_amounts(conn, ms, lookback)
     return [SuggestionOut(**r) for r in rows]

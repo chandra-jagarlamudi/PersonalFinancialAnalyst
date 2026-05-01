@@ -13,7 +13,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 2 | Ledger foundation (institutions, accounts, categories) | [#4](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/4) | Planned |
 | 3 | Async jobs + step-level status UI | [#5](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/5) | Planned |
 | 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) | **Implemented** |
-| 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) | Planned |
+| 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) | **Implemented** |
 | 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) | **Implemented** |
 | 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
 | 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
@@ -74,7 +74,7 @@ You can: bring up **Postgres locally** ([Getting started](#getting-started)), th
 
 - **Frontend**: Vite + React + TypeScript; dedicated **Upload** surface plus **Chat**; charts for cashflow, categories, budgets, recurring, anomalies.
 - **Backend**: single service hosting HTTP API, **Postgres-backed job queue**, ingestion pipeline, analytics queries, **LLM client abstraction** (pluggable providers), embedded **tool** layer, **LangSmith** hooks.
-- **Data**: PostgreSQL as system of record; **raw statement files** on a mounted path. **Local dev today:** [`compose.yaml`](compose.yaml) defines service **`db`** (PostgreSQL 16), a **named volume** `pgdata` for database files, and a **bind-mounted** host directory for raw uploads (`./data/raw-statements` by default, gitignored).
+- **Data**: PostgreSQL as system of record; **raw statement files** live on a host bind mount consumed by **`api`** (`./data/raw-statements` by default, gitignored). Service **`db`** (PostgreSQL 16) keeps database files in named volume **`pgdata`** only.
 
 ---
 

@@ -115,4 +115,8 @@ def purge_statement_endpoint(statement_id: UUID):
         if file_path is None:
             raise HTTPException(status_code=404, detail="statement not found")
         conn.commit()
-    delete_file(file_path)
+    try:
+        delete_file(file_path)
+    except OSError:
+        # DB purge already committed; orphaned bytes are acceptable vs failing the client.
+        pass
