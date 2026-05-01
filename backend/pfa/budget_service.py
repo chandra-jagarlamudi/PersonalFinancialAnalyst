@@ -35,7 +35,8 @@ def parse_year_month(value: str) -> date:
 def validate_slug(slug: str) -> None:
     if not _SLUG.fullmatch(slug.strip()):
         raise BudgetServiceError(
-            "slug must be lowercase letters, digits, and hyphens (no leading hyphen)"
+            "slug must be lowercase alphanumerics separated by single hyphens "
+            "(no leading, trailing, or consecutive hyphens)"
         )
 
 

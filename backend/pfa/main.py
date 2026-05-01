@@ -1,4 +1,4 @@
-"""HTTP API (slices 4–5: CSV ingest + raw file storage)."""
+"""HTTP API: CSV ingest, raw file storage, budgets."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from pfa.csv_parse import CsvParseError, parse_csv_bytes
 from pfa.db import connect, ensure_schema
 from pfa.ingest import (
     account_exists,
+    advisory_lock_statement_ingest,
     ingest_rows,
     purge_statement,
     record_statement,
@@ -75,7 +76,9 @@ def ingest_csv(
         if not account_exists(conn, account_id):
             raise HTTPException(status_code=404, detail="account not found")
 
-        existing = statement_exists_by_hash(conn, sha256)
+        advisory_lock_statement_ingest(conn, account_id, sha256)
+
+        existing = statement_exists_by_hash(conn, account_id, sha256)
         if existing:
             return IngestResponse(
                 inserted=existing["inserted"],
@@ -112,4 +115,8 @@ def purge_statement_endpoint(statement_id: UUID):
         if file_path is None:
             raise HTTPException(status_code=404, detail="statement not found")
         conn.commit()
-    delete_file(file_path)
+    try:
+        delete_file(file_path)
+    except OSError:
+        # DB purge already committed; orphaned bytes are acceptable vs failing the client.
+        pass

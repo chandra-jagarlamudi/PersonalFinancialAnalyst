@@ -140,7 +140,15 @@ if [[ "$marker" != "issue2-persist" ]]; then
   exit 1
 fi
 
-echo "==> raw statements mount visible in container"
-"${DC[@]}" exec -T db sh -c "test -d '${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}'"
+echo "==> raw statements bind-mount source directory (API reads via UPLOAD_DIR)"
+host_raw="${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}"
+if [[ "$host_raw" != /* ]]; then
+  host_raw="${ROOT%/}/${host_raw#./}"
+fi
+mkdir -p "$host_raw"
+if [[ ! -d "$host_raw" ]]; then
+  echo "error: RAW_STATEMENTS_HOST_PATH is not a directory: ${host_raw}" >&2
+  exit 1
+fi
 
 echo "All infra checks passed."

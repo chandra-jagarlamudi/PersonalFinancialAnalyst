@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from uuid import UUID
 
@@ -68,14 +69,25 @@ def ingest_rows(
 # Statement record helpers
 # ---------------------------------------------------------------------------
 
+def advisory_lock_statement_ingest(
+    conn: psycopg.Connection, account_id: UUID, sha256: str
+) -> None:
+    """Serialize ingest for (account, content hash) so races cannot corrupt counts."""
+    payload = f"{account_id}:{sha256}".encode()
+    digest = hashlib.sha256(payload).digest()
+    k1 = int.from_bytes(digest[0:4], "big", signed=False) & 0x7FFFFFFF
+    k2 = int.from_bytes(digest[4:8], "big", signed=False) & 0x7FFFFFFF
+    conn.execute("SELECT pg_advisory_xact_lock(%s, %s)", (k1, k2))
+
 
 def statement_exists_by_hash(
-    conn: psycopg.Connection, sha256: str
+    conn: psycopg.Connection, account_id: UUID, sha256: str
 ) -> dict | None:
-    """Return existing statement metadata if sha256 already ingested."""
+    """Return existing statement metadata if this account already ingested this file."""
     row = conn.execute(
-        "SELECT id, inserted, skipped_duplicates FROM statements WHERE sha256 = %s",
-        (sha256,),
+        "SELECT id, inserted, skipped_duplicates FROM statements"
+        " WHERE account_id = %s AND sha256 = %s",
+        (str(account_id), sha256),
     ).fetchone()
     if row is None:
         return None
@@ -90,16 +102,20 @@ def record_statement(
     file_path: Path,
     byte_size: int,
 ) -> UUID:
-    """Insert a new statement row and return its UUID."""
+    """Insert statement row (idempotent on concurrent duplicate uploads)."""
+
     row = conn.execute(
         """
         INSERT INTO statements
           (account_id, filename, sha256, file_path, byte_size)
         VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (account_id, sha256) DO UPDATE SET
+          filename = statements.filename
         RETURNING id
         """,
         (str(account_id), filename, sha256, str(file_path), byte_size),
     ).fetchone()
+    assert row is not None
     return row[0]
 
 

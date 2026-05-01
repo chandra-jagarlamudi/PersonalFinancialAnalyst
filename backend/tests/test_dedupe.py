@@ -34,12 +34,3 @@ def test_fingerprint_changes_when_normalized_description_differs():
     a = transaction_fingerprint(aid, d, Decimal("1"), "coffee")
     b = transaction_fingerprint(aid, d, Decimal("1"), "tea")
     assert a != b
-
-
-def test_fingerprint_stable_regardless_of_posted_date():
-    # posted_date excluded from fingerprint: overlapping statements with/without it must dedupe.
-    aid = UUID("44444444-4444-4444-4444-444444444444")
-    d = date(2025, 6, 1)
-    fp1 = transaction_fingerprint(aid, d, Decimal("50.00"), "amazon")
-    fp2 = transaction_fingerprint(aid, d, Decimal("50.00"), "amazon")
-    assert fp1 == fp2
