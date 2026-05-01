@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pfa
+          POSTGRES_PASSWORD: pfa_test
+          POSTGRES_DB: pfa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pfa -d pfa"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend + dev deps
+        run: pip install "./backend[dev]"
+      - name: Pytest
+        env:
+          DATABASE_URL: postgresql://pfa:pfa_test@127.0.0.1:5432/pfa
+        run: pytest backend/tests -v

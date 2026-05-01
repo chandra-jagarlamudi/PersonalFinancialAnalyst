@@ -12,7 +12,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 1 | Auth + localhost-only app shell | [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) | Planned |
 | 2 | Ledger foundation (institutions, accounts, categories) | [#4](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/4) | Planned |
 | 3 | Async jobs + step-level status UI | [#5](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/5) | Planned |
-| 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) | Planned |
+| 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) | **Implemented** |
 | 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) | Planned |
 | 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) | Planned |
 | 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
@@ -23,6 +23,8 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
 
 **Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). Tracked in [issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2); shipped on **`main`** via [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15) with follow-ups in [#17](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/17). Canonical PRD file added in [#16](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/16).
+
+**Slice 4** ([issue #6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6)): [`backend/`](backend/) FastAPI app with `POST /ingest/csv` (multipart form field `account_id` + CSV `file`), deterministic `dedupe_fingerprint` (SHA-256) and a Postgres `UNIQUE` constraint so replays increment `skipped_duplicates`. CSV columns: `transaction_date`, `amount`, `description`; optional `posted_date`, `currency` (default USD). Compose service **`api`** listens on `127.0.0.1:${API_PORT:-8000}` (`GET /health`). Tests: install deps under `backend/` and run `make test-backend` with `DATABASE_URL` pointing at the Compose database.
 
 ---
 
@@ -94,11 +96,13 @@ From the repository root:
    mkdir -p data/raw-statements
    ```
 
-3. Start Postgres. Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync. The Compose **project name** defaults to this folder’s name (no fixed `name:` in [`compose.yaml`](compose.yaml)), so separate clones keep distinct containers/volumes. Override with [`docker compose --project-name …`](https://docs.docker.com/compose/how-tos/project-name/) if needed.
+3. Start Postgres (and optionally the **`api`** service from slice 4). Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync. The Compose **project name** defaults to this folder’s name (no fixed `name:` in [`compose.yaml`](compose.yaml)), so separate clones keep distinct containers/volumes. Override with [`docker compose --project-name …`](https://docs.docker.com/compose/how-tos/project-name/) if needed.
 
    ```bash
    docker compose up -d
    ```
+
+   Database only: `docker compose up -d db`. With API: use the same command (Compose starts **`db`** and **`api`**; **`api`** waits until **`db`** is healthy).
 
    Optional explicit file: `docker compose --env-file .env up -d`.
 
