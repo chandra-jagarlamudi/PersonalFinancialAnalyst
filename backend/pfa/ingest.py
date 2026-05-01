@@ -8,6 +8,7 @@ from uuid import UUID
 
 import psycopg
 
+from pfa.categorization import apply_rules
 from pfa.csv_parse import ParsedCsvRow
 from pfa.dedupe import normalize_description, transaction_fingerprint
 
@@ -37,7 +38,7 @@ def ingest_rows(
                 row.amount,
                 desc_norm,
             )
-            cur.execute(
+            result = cur.execute(
                 """
                 INSERT INTO transactions (
                   account_id, transaction_date, posted_date, amount, currency,
@@ -45,6 +46,7 @@ def ingest_rows(
                   source_statement_id
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (dedupe_fingerprint) DO NOTHING
+                RETURNING id
                 """,
                 (
                     str(account_id),
@@ -57,9 +59,10 @@ def ingest_rows(
                     fp,
                     str(source_statement_id) if source_statement_id else None,
                 ),
-            )
-            if cur.rowcount == 1:
+            ).fetchone()
+            if result is not None:
                 inserted += 1
+                apply_rules(conn, str(result[0]))
             else:
                 skipped += 1
     return inserted, skipped
