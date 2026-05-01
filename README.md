@@ -6,21 +6,23 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 
 **Implementation slices (vertical, end-to-end):**
 
-| # | Topic | Issue |
-|---:|---|---|
-| 0 | Local dev infra (Docker Compose, Postgres, volumes, wiring) | [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2) |
-| 1 | Auth + localhost-only app shell | [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) |
-| 2 | Ledger foundation (institutions, accounts, categories) | [#4](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/4) |
-| 3 | Async jobs + step-level status UI | [#5](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/5) |
-| 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) |
-| 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) |
-| 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) |
-| 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) |
-| 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) |
-| 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) |
-| 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) |
-| 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) |
-| 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) |
+| # | Topic | Issue | Status |
+|---:|---|---|---|
+| 0 | Local dev infra (Docker Compose, Postgres, volumes, wiring) | [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2) | **Shipped** |
+| 1 | Auth + localhost-only app shell | [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) | Planned |
+| 2 | Ledger foundation (institutions, accounts, categories) | [#4](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/4) | Planned |
+| 3 | Async jobs + step-level status UI | [#5](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/5) | Planned |
+| 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) | Planned |
+| 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) | Planned |
+| 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) | Planned |
+| 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
+| 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
+| 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
+| 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | Planned |
+| 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | Planned |
+| 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
+
+**Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). PR: [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15).
 
 ---
 
@@ -60,7 +62,7 @@ The MVP is **single-user, self-hosted**, optimized for a trustworthy ledger and 
 
 ### Definition of done (MVP demo)
 
-You can: run the stack locally (see slice [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2)), log in, upload **CSV**, watch ingestion complete with step status, see transactions and charts, set **monthly budgets** with suggestions, see **recurring** and **anomaly** lists, and chat with the agent using tools—without duplicate transactions on retry/re-upload.
+You can: bring up **Postgres locally** ([Getting started](#getting-started)), then run the full stack once later slices land—log in, upload **CSV**, watch ingestion complete with step status, see transactions and charts, set **monthly budgets** with suggestions, see **recurring** and **anomaly** lists, and chat with the agent using tools—without duplicate transactions on retry/re-upload.
 
 ---
 
@@ -68,13 +70,58 @@ You can: run the stack locally (see slice [#2](https://github.com/chandra-jagarl
 
 - **Frontend**: Vite + React + TypeScript; dedicated **Upload** surface plus **Chat**; charts for cashflow, categories, budgets, recurring, anomalies.
 - **Backend**: single service hosting HTTP API, **Postgres-backed job queue**, ingestion pipeline, analytics queries, **LLM client abstraction** (pluggable providers), embedded **tool** layer, **LangSmith** hooks.
-- **Data**: PostgreSQL as system of record; **raw statement files** on a mounted volume/path suitable for Docker/local dev.
+- **Data**: PostgreSQL as system of record; **raw statement files** on a mounted path. **Local dev today:** [`compose.yaml`](compose.yaml) defines service **`db`** (PostgreSQL 16), a **named volume** `pgdata` for database files, and a **bind-mounted** host directory for raw uploads (`./data/raw-statements` by default, gitignored).
 
 ---
 
 ## Getting started
 
-Until the repo contains the full app again, follow the **vertical slices** in order (especially **#2** for Compose + Postgres + volumes). When `docker compose` and env templates land, this section should be updated with exact commands—tracked in [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2).
+### Local database (slice [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2))
+
+Prerequisites: [Docker](https://docs.docker.com/get-docker/) with Compose v2.
+
+From the repository root:
+
+1. Copy the env template and edit secrets if you want non-default passwords:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Create the raw-statement bind-mount directory (gitignored; Compose also creates it when missing on many setups):
+
+   ```bash
+   mkdir -p data/raw-statements
+   ```
+
+3. Start Postgres. Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Optional explicit file: `docker compose --env-file .env up -d`.
+
+   Postgres is published on **`127.0.0.1:${POSTGRES_PORT}`** only (not all interfaces); change [`compose.yaml`](compose.yaml) if you intentionally need LAN access.
+
+   Wait until Postgres is ready: `docker compose ps` should show **`db`** as **`healthy`**, or use `docker compose up -d --wait` if your Compose version supports it.
+
+4. From the host, connect using **`DATABASE_URL`** in `.env` (see `.env.example`; defaults use `127.0.0.1` and **`POSTGRES_PORT`**).
+
+5. Run the automated checks (compose config, readiness, `SELECT 1`, persistence across **`db` restart**, raw mount):
+
+   ```bash
+   make verify-infra
+   ```
+
+   This runs [`scripts/verify-infra.sh`](scripts/verify-infra.sh) against **`.env.example`**, then **`docker compose down`** without `-v` so the **`pgdata`** volume remains. To drop volumes after the run: `./scripts/verify-infra.sh --teardown-volumes`.
+
+**Teardown**
+
+- Stop containers, **keep** Postgres data: `docker compose down`
+- Stop and **delete** the **`pgdata`** volume: `docker compose down -v`
+
+**Next slice:** [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) (auth + localhost-only app shell).
 
 ---
 
