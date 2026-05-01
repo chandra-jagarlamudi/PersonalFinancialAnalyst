@@ -20,7 +20,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
 | 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | **Implemented** |
 | 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | **Implemented** |
-| 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
+| 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | **Implemented** |
 
 **Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). Tracked in [issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2); shipped on **`main`** via [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15) with follow-ups in [#17](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/17). Canonical PRD file added in [#16](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/16).
 
@@ -31,6 +31,8 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 **Slice 10** ([issue #12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12)): Embedded **MCP-shaped** read tools plus **SSE streaming chat**. **`GET /chat/tools`** returns JSON-schema manifests (`ledger_summary`: aggregate counts and expense/income totals, optional `account_id`). **`POST /chat/stream`** accepts `{ "message": "..." }` and emits **`text/event-stream`** frames (`tool_call`, `tool_result`, `delta`, `done`). The MVP planner is **deterministic** (keyword routing); swap-in LLM planner later without changing tool contracts.
 
 **Slice 11** ([issue #13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13)): **Optional LangSmith** wrapping on **`invoke_tool`** via **`LANGCHAIN_TRACING_V2=true`** (+ **`LANGCHAIN_API_KEY`**, **`LANGCHAIN_PROJECT`**). When tracing is off or **`langsmith`** is missing, behavior matches the slice 10 path. See [`.env.example`](.env.example).
+
+**Slice 12** ([issue #14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14)): **`POST /ingest/pdf`** (multipart **`account_id`** + **`file`**, same size cap as CSV) validates a **`%PDF`** header, runs the targeted credit-card parser ladder (**stub v0**: no rows, confidence **0.35**), and returns **`requires_hitl`** plus **`parser_notes`** without persisting transactions until confidence and row extraction justify auto-ingest (501 placeholder if that path triggers).
 
 ---
 
