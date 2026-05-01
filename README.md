@@ -2,7 +2,7 @@
 
 Self-hosted personal finance stack: ingest bank and credit card statements (CSV and targeted PDFs), normalize them into **PostgreSQL**, and use a **backend-run AI agent** with an **MCP-shaped tool layer** for budgeting, charts, recurring spend, anomalies, and chat grounded in your ledger.
 
-**Product spec:** [PRD #1 — Personal Finance MCP server + agent-driven UI (self-hosted MVP)](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/1)
+**Product spec:** [docs/PRD.md](docs/PRD.md) (canonical copy) · [Issue #1 — PRD discussion](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/1)
 
 **Implementation slices (vertical, end-to-end):**
 
@@ -22,7 +22,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | Planned |
 | 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
 
-**Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). PR: [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15).
+**Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). Same stack merged to `main` in [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15); **this PR fast-forwards `master` to include slice 0 for [issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2).**
 
 ---
 
