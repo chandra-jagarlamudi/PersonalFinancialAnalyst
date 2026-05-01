@@ -11,7 +11,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from pfa.budget_api import router as budget_router
-from pfa.categorization_api import router as categorization_router
+from pfa.recurring_api import router as recurring_router
 from pfa.csv_parse import CsvParseError, parse_csv_bytes
 from pfa.db import connect, ensure_schema
 from pfa.ingest import (
@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 
 app.include_router(budget_router)
-app.include_router(categorization_router)
+app.include_router(recurring_router)
 
 
 @app.get("/health")
