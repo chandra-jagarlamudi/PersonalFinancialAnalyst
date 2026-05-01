@@ -25,6 +25,11 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! docker compose version >/dev/null 2>&1; then
+  echo "error: 'docker compose' (Compose v2 plugin) not available; install Docker Compose v2" >&2
+  exit 1
+fi
+
 if [[ ! -f "$ENV_EXAMPLE" ]]; then
   echo "error: missing .env.example at $ENV_EXAMPLE" >&2
   exit 1
@@ -99,6 +104,18 @@ fi
 echo "==> connectivity (SELECT 1)"
 "${DC[@]}" exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -c "SELECT 1;" >/dev/null
 
+echo "==> host publish matches POSTGRES_PORT (backend wiring)"
+host_bind="$("${DC[@]}" port db 5432 2>/dev/null | tr -d '\r' || true)"
+if [[ -z "$host_bind" ]]; then
+  echo "error: could not read published port (docker compose port db 5432)" >&2
+  exit 1
+fi
+host_port="${host_bind##*:}"
+if [[ "$host_port" != "${POSTGRES_PORT}" ]]; then
+  echo "error: container publishes ${host_bind}; expected host port ${POSTGRES_PORT} (POSTGRES_PORT)" >&2
+  exit 1
+fi
+
 echo "==> persistence marker + container restart"
 "${DC[@]}" exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -c "
 CREATE TABLE IF NOT EXISTS _pfa_infra_issue2 (k text PRIMARY KEY, v text NOT NULL);
@@ -111,6 +128,7 @@ INSERT INTO _pfa_infra_issue2 (k, v) VALUES ('marker', 'issue2-persist')
 if "${DC[@]}" up -d --wait 2>/dev/null; then
   :
 else
+  "${DC[@]}" up -d
   wait_for_db
 fi
 
