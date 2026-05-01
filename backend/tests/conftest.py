@@ -50,7 +50,7 @@ def db_conn(database_url):
 def clean_db(db_conn):
     with db_conn.cursor() as cur:
         cur.execute(
-            "TRUNCATE transactions, accounts, institutions RESTART IDENTITY CASCADE"
+            "TRUNCATE budgets, transactions, statements, accounts, institutions, categories RESTART IDENTITY CASCADE"
         )
     db_conn.commit()
     yield db_conn
@@ -77,9 +77,19 @@ def sample_account_id(clean_db):
 
 
 @pytest.fixture
+def upload_dir(tmp_path, monkeypatch):
+    d = tmp_path / "uploads"
+    d.mkdir()
+    monkeypatch.setenv("UPLOAD_DIR", str(d))
+    return d
+
+
+@pytest.fixture
 def client(database_url, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", database_url)
     from fastapi.testclient import TestClient
     from pfa.main import app
 
-    return TestClient(app)
+    # Context manager runs lifespan startup (schema DDL) before requests.
+    with TestClient(app) as test_client:
+        yield test_client
