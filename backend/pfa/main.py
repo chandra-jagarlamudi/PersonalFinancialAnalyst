@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 from pfa.anomalies_api import router as anomalies_router
 from pfa.budget_api import router as budget_router
+from pfa.chat_api import router as chat_router
 from pfa.categorization_api import router as categorization_router
 from pfa.recurring_api import router as recurring_router
 from pfa.csv_parse import CsvParseError, parse_csv_bytes
@@ -25,9 +27,11 @@ from pfa.ingest import (
     statement_exists_by_hash,
     update_statement_counts,
 )
+from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
 from pfa.storage import delete_file, sha256_hex, store
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PDF_UPLOAD_BYTES = MAX_CSV_UPLOAD_BYTES
 
 
 class IngestResponse(BaseModel):
@@ -35,6 +39,16 @@ class IngestResponse(BaseModel):
     skipped_duplicates: int
     statement_id: str
     duplicate_statement: bool = False
+
+
+class PdfIngestResponse(BaseModel):
+    inserted: int
+    skipped_duplicates: int = 0
+    confidence: Decimal
+    requires_hitl: bool
+    parser_notes: str
+    duplicate_statement: bool = False
+    statement_id: str | None = None
 
 
 @asynccontextmanager
@@ -51,6 +65,7 @@ app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 app.include_router(budget_router)
 app.include_router(categorization_router)
 app.include_router(recurring_router)
+app.include_router(chat_router)
 app.include_router(anomalies_router)
 
 
@@ -111,6 +126,51 @@ def ingest_csv(
         inserted=inserted,
         skipped_duplicates=skipped,
         statement_id=str(stmt_id),
+    )
+
+
+def _ensure_pdf_magic(raw: bytes) -> None:
+    if len(raw) < 5 or not raw.startswith(b"%PDF"):
+        raise HTTPException(
+            status_code=422,
+            detail="PDF uploads must begin with a %PDF header",
+        )
+
+
+@app.post("/ingest/pdf", response_model=PdfIngestResponse)
+def ingest_pdf(
+    account_id: Annotated[UUID, Form()],
+    file: Annotated[UploadFile, File()],
+):
+    raw = file.file.read(MAX_PDF_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_PDF_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF exceeds maximum size of {MAX_PDF_UPLOAD_BYTES} bytes",
+        )
+
+    _ensure_pdf_magic(raw)
+
+    with connect() as conn:
+        if not account_exists(conn, account_id):
+            raise HTTPException(status_code=404, detail="account not found")
+
+    outcome = parse_targeted_credit_card_pdf_stub(raw)
+    hitl = outcome_requires_hitl(outcome)
+
+    if not hitl:
+        raise HTTPException(
+            status_code=501,
+            detail="PDF auto-ingest path not implemented yet (parser produced rows with sufficient confidence)",
+        )
+
+    return PdfIngestResponse(
+        inserted=0,
+        skipped_duplicates=0,
+        confidence=outcome.confidence,
+        requires_hitl=hitl,
+        parser_notes=outcome.notes,
+        statement_id=None,
     )
 
 
