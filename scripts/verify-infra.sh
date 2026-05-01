@@ -46,7 +46,7 @@ STACK_STARTED=0
 cleanup() {
   local ec=$?
   trap - EXIT
-  if [[ "$STACK_STARTED" == 1 ]]; then
+  if [[ "$STACK_STARTED" -eq 1 ]]; then
     if [[ "$TEARDOWN_VOLUMES" == true ]]; then
       echo "==> docker compose down -v"
       "${DC[@]}" down -v || true
@@ -92,7 +92,7 @@ else
   wait_for_db
 fi
 # Only mark the stack for teardown if this script was the one that started it.
-if [[ "$DB_WAS_RUNNING" == 0 ]]; then
+if [[ "$DB_WAS_RUNNING" -eq 0 ]]; then
   STACK_STARTED=1
 fi
 
