@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from uuid import UUID
 
+import psycopg
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +16,7 @@ router = APIRouter(tags=["categorization"])
 
 class RuleCreate(BaseModel):
     category_id: UUID
-    pattern: str = Field(min_length=1)
+    pattern: str = Field(min_length=1, max_length=500)
     priority: int = Field(default=100)
     apply_retroactively: bool = False
 
@@ -41,13 +41,21 @@ class TransactionOut(BaseModel):
 
 
 class RuleProposalIn(BaseModel):
-    pattern: str = Field(min_length=1)
+    pattern: str = Field(min_length=1, max_length=500)
     apply_retroactively: bool = False
 
 
 class RuleProposalOut(BaseModel):
     proposed_rule: dict
     would_affect_count: int
+
+
+def _validate_postgres_regex(conn: psycopg.Connection, pattern: str) -> None:
+    """Raise 422 if Postgres rejects the pattern (avoids Python/Postgres engine mismatch)."""
+    try:
+        conn.execute("SELECT '' ~* %s", (pattern,))
+    except psycopg.errors.InvalidRegularExpression as exc:
+        raise HTTPException(status_code=422, detail=f"invalid regex: {exc}") from exc
 
 
 @router.get("/categorization/rules", response_model=list[RuleOut])
@@ -69,12 +77,9 @@ def list_rules():
 
 @router.post("/categorization/rules", response_model=RuleOut, status_code=201)
 def create_rule(body: RuleCreate):
-    try:
-        re.compile(body.pattern)
-    except re.error as exc:
-        raise HTTPException(status_code=422, detail=f"invalid regex: {exc}") from exc
-
     with connect() as conn:
+        _validate_postgres_regex(conn, body.pattern)
+
         cat = conn.execute(
             "SELECT id, name FROM categories WHERE id = %s", (str(body.category_id),)
         ).fetchone()
@@ -138,17 +143,14 @@ def update_transaction_category(transaction_id: UUID, body: CategoryPatch):
 
 @router.post("/transactions/{transaction_id}/rule-proposal", response_model=RuleProposalOut)
 def propose_rule(transaction_id: UUID, body: RuleProposalIn):
-    try:
-        re.compile(body.pattern)
-    except re.error as exc:
-        raise HTTPException(status_code=422, detail=f"invalid regex: {exc}") from exc
-
     with connect() as conn:
         tx = conn.execute(
             "SELECT id FROM transactions WHERE id = %s", (str(transaction_id),)
         ).fetchone()
         if tx is None:
             raise HTTPException(status_code=404, detail="transaction not found")
+
+        _validate_postgres_regex(conn, body.pattern)
 
         count_row = conn.execute(
             "SELECT COUNT(*) FROM transactions WHERE category_id IS NULL AND description_normalized ~* %s",
