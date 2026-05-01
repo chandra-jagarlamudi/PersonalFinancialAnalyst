@@ -41,6 +41,7 @@ set -a && source "$ENV_EXAMPLE" && set +a
 export ENV_FILE="$ENV_EXAMPLE"
 DC=(docker compose --env-file "$ENV_EXAMPLE" -f "$COMPOSE_FILE")
 
+# Track whether this script started the db (so we never tear down a pre-existing stack).
 STACK_STARTED=0
 cleanup() {
   local ec=$?
@@ -76,6 +77,13 @@ wait_for_db() {
   return 1
 }
 
+# Detect whether the db container was already running before this script touched it.
+# If it was, we leave it running on exit regardless of --teardown-volumes.
+DB_WAS_RUNNING=0
+if [[ -n "$("${DC[@]}" ps -q db 2>/dev/null)" ]]; then
+  DB_WAS_RUNNING=1
+fi
+
 echo "==> compose up"
 if "${DC[@]}" up -d --wait 2>/dev/null; then
   :
@@ -83,7 +91,10 @@ else
   "${DC[@]}" up -d
   wait_for_db
 fi
-STACK_STARTED=1
+# Only mark the stack for teardown if this script was the one that started it.
+if [[ "$DB_WAS_RUNNING" == 0 ]]; then
+  STACK_STARTED=1
+fi
 
 echo "==> connectivity (SELECT 1)"
 "${DC[@]}" exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -c "SELECT 1;" >/dev/null
