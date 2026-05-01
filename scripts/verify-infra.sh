@@ -41,6 +41,23 @@ set -a && source "$ENV_EXAMPLE" && set +a
 export ENV_FILE="$ENV_EXAMPLE"
 DC=(docker compose --env-file "$ENV_EXAMPLE" -f "$COMPOSE_FILE")
 
+STACK_STARTED=0
+cleanup() {
+  local ec=$?
+  trap - EXIT
+  if [[ "$STACK_STARTED" == 1 ]]; then
+    if [[ "$TEARDOWN_VOLUMES" == true ]]; then
+      echo "==> docker compose down -v"
+      "${DC[@]}" down -v || true
+    else
+      echo "==> docker compose down (volumes retained)"
+      "${DC[@]}" down || true
+    fi
+  fi
+  exit "$ec"
+}
+trap cleanup EXIT
+
 mkdir -p "${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}"
 
 echo "==> compose config"
@@ -66,6 +83,7 @@ else
   "${DC[@]}" up -d
   wait_for_db
 fi
+STACK_STARTED=1
 
 echo "==> connectivity (SELECT 1)"
 "${DC[@]}" exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -c "SELECT 1;" >/dev/null
@@ -97,11 +115,3 @@ echo "==> raw statements mount visible in container"
 "${DC[@]}" exec -T db sh -c "test -d '${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}'"
 
 echo "All infra checks passed."
-
-if [[ "$TEARDOWN_VOLUMES" == true ]]; then
-  echo "==> docker compose down -v"
-  "${DC[@]}" down -v
-else
-  echo "==> docker compose down (volumes retained)"
-  "${DC[@]}" down
-fi

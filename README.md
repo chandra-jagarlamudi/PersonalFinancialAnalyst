@@ -102,6 +102,8 @@ From the repository root:
 
    Optional explicit file: `docker compose --env-file .env up -d`.
 
+   Postgres is published on **`127.0.0.1:${POSTGRES_PORT}`** only (not all interfaces); change [`compose.yaml`](compose.yaml) if you intentionally need LAN access.
+
    Wait until Postgres is ready: `docker compose ps` should show **`db`** as **`healthy`**, or use `docker compose up -d --wait` if your Compose version supports it.
 
 4. From the host, connect using **`DATABASE_URL`** in `.env` (see `.env.example`; defaults use `127.0.0.1` and **`POSTGRES_PORT`**).

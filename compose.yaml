@@ -11,7 +11,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pfa_dev_password_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-pfa}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Bind loopback only by default (matches localhost-first posture in README).
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}:${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}
