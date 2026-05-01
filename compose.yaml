@@ -8,8 +8,11 @@ services:
       - ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pfa}:${POSTGRES_PASSWORD:-pfa_dev_password_change_me}@db:5432/${POSTGRES_DB:-pfa}
+      UPLOAD_DIR: ${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      - ${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}:${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}
     depends_on:
       db:
         condition: service_healthy

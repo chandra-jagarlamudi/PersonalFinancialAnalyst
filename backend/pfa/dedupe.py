@@ -15,16 +15,15 @@ def normalize_description(raw: str) -> str:
 def transaction_fingerprint(
     account_id: UUID,
     transaction_date: date,
-    posted_date: date | None,
     amount: Decimal,
     description_normalized: str,
 ) -> str:
-    posted = posted_date.isoformat() if posted_date else ""
+    # posted_date intentionally excluded: same transaction imported with/without
+    # posted_date must produce the same fingerprint to avoid ledger duplication.
     canonical = "|".join(
         (
             str(account_id),
             transaction_date.isoformat(),
-            posted,
             f"{amount.quantize(Decimal('0.0001')):.4f}",
             description_normalized,
         )
