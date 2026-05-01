@@ -1,6 +1,7 @@
 """Insert parsed CSV rows with deterministic dedupe; statement record management."""
 
-from __future__ import annotations<<<<<<< feat/slice-6-budgeting
+from __future__ import annotations
+
 import hashlib
 from pathlib import Path
 from uuid import UUID
