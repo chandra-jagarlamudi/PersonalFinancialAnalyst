@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS transactions (
 -- Idempotent column addition for DBs created before slice 5.
 ALTER TABLE transactions
   ADD COLUMN IF NOT EXISTS source_statement_id UUID REFERENCES statements(id) ON DELETE SET NULL;
-
 -- Migrate DBs that still have the old hash-only unique constraint (pre-fix).
 ALTER TABLE statements DROP CONSTRAINT IF EXISTS statements_sha256_key;
 DO $$

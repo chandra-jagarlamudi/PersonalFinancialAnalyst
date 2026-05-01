@@ -1,7 +1,6 @@
 """Insert parsed CSV rows with deterministic dedupe; statement record management."""
 
-from __future__ import annotations
-
+from __future__ import annotations<<<<<<< feat/slice-6-budgeting
 import hashlib
 from pathlib import Path
 from uuid import UUID
@@ -69,7 +68,6 @@ def ingest_rows(
 # Statement record helpers
 # ---------------------------------------------------------------------------
 
-
 def advisory_lock_statement_ingest(
     conn: psycopg.Connection, account_id: UUID, sha256: str
 ) -> None:
@@ -104,6 +102,7 @@ def record_statement(
     byte_size: int,
 ) -> UUID:
     """Insert statement row (idempotent on concurrent duplicate uploads)."""
+
     row = conn.execute(
         """
         INSERT INTO statements
