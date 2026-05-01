@@ -1,4 +1,4 @@
-"""HTTP API (slices 4–5: CSV ingest + raw file storage)."""
+"""HTTP API: CSV ingest, raw file storage, budgets."""
 
 from __future__ import annotations
 
