@@ -1,159 +1,375 @@
 # Personal Financial Analyst
 
-Self-hosted personal finance stack: ingest bank and credit card statements (CSV and targeted PDFs), normalize them into **PostgreSQL**, and use a **backend-run AI agent** with an **MCP-shaped tool layer** for budgeting, charts, recurring spend, anomalies, and chat grounded in your ledger.
+Personal Financial Analyst is a self-hosted personal finance system for people who want a trustworthy ledger first and AI-assisted analysis second. The project is built around a simple idea: raw statement data should be ingested into a durable PostgreSQL ledger with deterministic parsing, normalization, and deduplication before any higher-level budgeting, categorization, recurring-spend detection, or agent-driven analysis happens.
 
-**Product spec:** [docs/PRD.md](docs/PRD.md) (canonical copy) · [Issue #1 — PRD discussion](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/1)
+The long-term product direction is a budgeting-first web application with an embedded AI agent and an MCP-shaped tool layer. The current repository already includes a working backend service, Docker Compose-based local infrastructure, raw statement file storage, CSV ingestion, envelope budgeting, deterministic categorization rules, and recurring-charge detection. The canonical product vision lives in [docs/PRD.md](docs/PRD.md).
 
-**Implementation slices (vertical, end-to-end):**
+## What the project is trying to solve
 
-| # | Topic | Issue | Status |
-|---:|---|---|---|
-| 0 | Local dev infra (Docker Compose, Postgres, volumes, wiring) | [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2) | **Shipped** |
-| 1 | Auth + localhost-only app shell | [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) | Planned |
-| 2 | Ledger foundation (institutions, accounts, categories) | [#4](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/4) | Planned |
-| 3 | Async jobs + step-level status UI | [#5](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/5) | Planned |
-| 4 | CSV ingestion + dedupe | [#6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6) | **Implemented** |
-| 5 | Raw file storage + hash idempotency + purge | [#7](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/7) | **Implemented** |
-| 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) | **Implemented** |
-| 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
-| 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
-| 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
-| 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | **Implemented** |
-| 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | **Implemented** |
-| 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | **Implemented** |
+Personal finance data is usually spread across different institutions, export formats, and inconsistent naming conventions. Spreadsheets work, but they require constant manual cleanup. Generic "chat with your finances" products often skip the hard parts: reliable ingestion, repeatable deduplication, stable categories, and privacy-conscious data handling.
 
-**Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). Tracked in [issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2); shipped on **`main`** via [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15) with follow-ups in [#17](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/17). Canonical PRD file added in [#16](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/16).
+This project is designed to solve that problem in layers:
 
-**Slice 4** ([issue #6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6)): [`backend/`](backend/) FastAPI app with `POST /ingest/csv` (multipart form field `account_id` + CSV `file`, **max 10 MiB** per upload), deterministic `dedupe_fingerprint` (SHA-256) and a Postgres `UNIQUE` constraint so replays increment `skipped_duplicates`. CSV columns: `transaction_date`, `amount`, `description`; optional `posted_date`, `currency` (default USD). Schema bootstrap runs once at API startup (not per request). Compose service **`api`** listens on `127.0.0.1:${API_PORT:-8000}` (`GET /health`). Tests: install deps under `backend/` and run `make test-backend` with `DATABASE_URL` pointing at the Compose database.
+1. **Ingest statements reliably.** Bring structured financial data into one canonical schema.
+2. **Preserve trust in the ledger.** Prevent duplicate statements and duplicate transactions with deterministic hashing and uniqueness constraints.
+3. **Make the ledger useful.** Support categories, budgets, recurring-spend detection, and future anomaly detection.
+4. **Enable higher-level analysis safely.** Add an AI assistant on top of structured tools instead of letting an LLM guess from untrusted raw text.
 
-**Slice 6** ([issue #8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8)): Envelope budgets per calendar month and category. **`categories`** table (`slug`, `name`) with `POST /categories` and `GET /categories`. **`budgets`** rows keyed by `(category_id, month)` where `month` is `YYYY-MM-01`; `PUT /budgets/{year_month}` upserts `{items: [{category_id, amount}]}`, `GET /budgets/{year_month}` lists caps. **`GET /budgets/{year_month}/status`** sums expenses (`amount < 0`) from **`transactions.category_id`** MTD (optional `as_of` query) and returns linear **projected** month spend plus remaining amounts. **`POST /budgets/{year_month}/suggest`** proposes caps from prior-window expense totals divided by `lookback_months` (default 6). Categorization rules remain slice 7; link spending by setting `transactions.category_id`.
+## Current state of the repository
 
-**Slice 10** ([issue #12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12)): Embedded **MCP-shaped** read tools plus **SSE streaming chat**. **`GET /chat/tools`** returns JSON-schema manifests (`ledger_summary`: aggregate counts and expense/income totals, optional `account_id`). **`POST /chat/stream`** accepts `{ "message": "..." }` and emits **`text/event-stream`** frames (`tool_call`, `tool_result`, `delta`, `done`). The MVP planner is **deterministic** (keyword routing); swap-in LLM planner later without changing tool contracts.
+The repo is ahead of the old README in a few areas. Today it contains:
 
-**Slice 11** ([issue #13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13)): **Optional LangSmith** wrapping on **`invoke_tool`** via **`LANGCHAIN_TRACING_V2=true`** (+ **`LANGCHAIN_API_KEY`**, **`LANGCHAIN_PROJECT`**). When tracing is off or **`langsmith`** is missing, behavior matches the slice 10 path. See [`.env.example`](.env.example).
+| Area | Status | Notes |
+|---|---|---|
+| Docker Compose local stack | Implemented | Starts PostgreSQL and the FastAPI backend, both bound to localhost by default. |
+| Backend API | Implemented | FastAPI service with schema bootstrap on startup. |
+| CSV statement ingestion | Implemented | Multipart upload with validation, file hashing, account scoping, and transaction dedupe. |
+| Raw statement storage | Implemented | Files are stored on disk using content-addressed paths under the configured upload directory. |
+| Statement purge | Implemented | Removes DB metadata and attempts to delete the stored file. |
+| Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
+| Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
+| Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
+| Frontend UI | Not yet implemented in this repo | The PRD describes the intended Vite + React client, but the current codebase is backend- and infra-focused. |
+| Agent/chat workflows | Planned | Product direction is documented in the PRD, but the runtime is not yet in this repository. |
 
-**Slice 12** ([issue #14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14)): **`POST /ingest/pdf`** (multipart **`account_id`** + **`file`**, same size cap as CSV) validates a **`%PDF`** header, runs the targeted credit-card parser ladder (**stub v0**: no rows, confidence **0.35**), and returns **`requires_hitl`** plus **`parser_notes`** without persisting transactions until confidence and row extraction justify auto-ingest (501 placeholder if that path triggers).
+## Product direction
 
----
+The intended product is a single-user, self-hosted finance application that runs locally by default. A user should be able to upload account statements, build a normalized ledger, manage categories and budgets, inspect recurring spending, and eventually ask an embedded AI agent questions such as why a month was expensive or which subscriptions are driving recurring costs.
 
-## MVP (what you get first)
+The project is deliberately biased toward deterministic behavior:
 
-The MVP is **single-user, self-hosted**, optimized for a trustworthy ledger and a budgeting-first UI—not for multi-tenant SaaS.
+| Design principle | What it means here |
+|---|---|
+| Ledger-first architecture | Analysis depends on normalized database records, not ad hoc prompt context. |
+| Privacy by default | Services bind to `127.0.0.1` in local development unless you intentionally change that posture. |
+| Deterministic before AI | Parsing, dedupe, budgeting, categorization rules, and recurring detection are implemented as code and SQL first. |
+| Self-hosted workflow | Raw statement files and the database live on your machine. |
+| Explainable system behavior | Unique constraints, regex rules, month-based budgets, and cadence checks are inspectable and testable. |
 
-### Core capabilities
+## Architecture overview
 
-- **Ingestion**
-  - **CSV** statements end-to-end: upload → async job → normalized transactions in Postgres.
-  - **One targeted credit card PDF** format (after a sample statement is agreed for parser tests); generic “any PDF” is explicitly later work.
-  - **Async jobs** backed by Postgres, with **step-level status** and counts; UI **polls** job progress (no streaming of job steps in MVP).
-  - **Statement-level** idempotency (content hash) and **transaction-level** dedupe (deterministic fingerprint + uniqueness).
-  - **Raw files** on disk with DB metadata; **soft-delete** and **permanent purge** (DB + files).
+At the moment the architecture is intentionally small:
 
-- **Ledger & accounts**
-  - Institutions, accounts, **account aliases**, categories with **stable internal ids** (default taxonomy + user customization).
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Local orchestration | Docker Compose | Starts the database and backend with consistent environment wiring. |
+| API service | FastAPI on Python 3.11+ | Exposes ingestion, budgeting, categorization, recurring, and health endpoints. |
+| Database | PostgreSQL 16 | System of record for institutions, accounts, statements, transactions, categories, budgets, and categorization rules. |
+| File storage | Local filesystem bind mount | Stores uploaded raw statement files in a durable path outside the container image. |
+| Packaging | `pyproject.toml` + setuptools | Installs the backend package and test dependencies. |
+| Container runtime | Python 3.12 slim image | Runs the packaged backend behind Uvicorn in Docker. |
 
-- **Budgeting & analytics**
-  - **Envelope-style monthly budgets** per category, **month-to-date** views with simple **projection**, and **suggest from history** (aggregate-based, no LLM required).
-  - Cashflow and category views over time.
-  - **Recurring** charges: same merchant + similar amount, **monthly** cadence, **≥3** occurrences (deterministic).
-  - **Anomalies**: deterministic signals + simple robust stats; optional agent **explanations** after detection.
+The future architecture described in the PRD adds a separate frontend, asynchronous ingestion jobs, analytics views, anomaly detection, and an embedded agent/tooling layer. That future direction matters because the current backend and schema are being built to support that system incrementally rather than as a throwaway prototype.
 
-- **Agent & tools**
-  - **Backend-run** agent; tools are **MCP-shaped** but **embedded in the backend** (not a separate MCP process for MVP).
-  - **High-level read tools** plus a **restricted read-only SQL** escape hatch for development and deep questions.
-  - **Streaming chat** in the UI.
-  - **Confirm-before-write** for any mutating tool path.
-  - **Privacy default**: aggregates to the model by default; **line-item context only on explicit drilldown**.
-  - **LangSmith** for tracing agent and tool calls.
+## Tech stack in detail
 
-- **Security posture (MVP)**
-  - **Password login** + session cookie.
-  - **Localhost-only** binding by default; exposing beyond localhost is a deliberate later step (e.g. reverse proxy + TLS).
+### Backend
 
-### Definition of done (MVP demo)
+The backend lives under [`backend/`](backend/) as a Python package named `pfa`.
 
-You can: bring up **Postgres locally** ([Getting started](#getting-started)), then run the full stack once later slices land—log in, upload **CSV**, watch ingestion complete with step status, see transactions and charts, set **monthly budgets** with suggestions, see **recurring** and **anomaly** lists, and chat with the agent using tools—without duplicate transactions on retry/re-upload.
+| Component | Details |
+|---|---|
+| Framework | **FastAPI** for HTTP routing, request parsing, validation, and typed responses. |
+| ASGI server | **Uvicorn** runs the app inside the container. |
+| Database driver | **psycopg 3** is used for PostgreSQL access. |
+| Multipart uploads | **python-multipart** handles CSV file uploads. |
+| Testing | **pytest** plus **httpx/FastAPI TestClient** for integration-style API coverage. |
+| Packaging | **setuptools** with a `pyproject.toml` configuration. |
 
----
+### Data layer
 
-## Architecture (conceptual)
+PostgreSQL is the system of record and currently contains the core financial ledger model:
 
-- **Frontend**: Vite + React + TypeScript; dedicated **Upload** surface plus **Chat**; charts for cashflow, categories, budgets, recurring, anomalies.
-- **Backend**: single service hosting HTTP API, **Postgres-backed job queue**, ingestion pipeline, analytics queries, **LLM client abstraction** (pluggable providers), embedded **tool** layer, **LangSmith** hooks.
-- **Data**: PostgreSQL as system of record; **raw statement files** live on a host bind mount consumed by **`api`** (`./data/raw-statements` by default, gitignored). Service **`db`** (PostgreSQL 16) keeps database files in named volume **`pgdata`** only.
+| Table | Purpose |
+|---|---|
+| `institutions` | Financial institutions such as banks or card issuers. |
+| `accounts` | User accounts scoped to an institution and currency. |
+| `statements` | Uploaded source files with account scoping, file hash, file path, and ingest counters. |
+| `transactions` | Canonical ledger rows with dates, signed amounts, raw and normalized descriptions, dedupe fingerprint, and optional category. |
+| `categories` | Budget and categorization labels with stable UUIDs and unique slugs. |
+| `budgets` | Monthly envelope-style budget caps keyed by category and month. |
+| `categorization_rules` | Deterministic regex rules ordered by priority. |
 
----
+The schema is idempotent and is applied at API startup when `DATABASE_URL` is available. That makes local iteration easy while still keeping the schema under version control in [`backend/pfa/schema.sql`](backend/pfa/schema.sql).
 
-## Getting started
+### Infrastructure and storage
 
-### Local database (slice [#2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2))
+The local stack is defined in [`compose.yaml`](compose.yaml):
 
-Prerequisites: [Docker](https://docs.docker.com/get-docker/) with Compose v2.
+| Service | Details |
+|---|---|
+| `db` | PostgreSQL 16 Alpine image with a named volume `pgdata` for durable database storage. |
+| `api` | Backend container built from [`backend/Dockerfile`](backend/Dockerfile), connected to the database through the internal Compose network. |
 
-From the repository root:
+The API binds to `127.0.0.1:${API_PORT}` and Postgres binds to `127.0.0.1:${POSTGRES_PORT}` by default. Raw statements are stored via a bind mount, which defaults to `./data/raw-statements` on the host and `/data/raw-statements` inside the container.
 
-1. Copy the env template and edit secrets if you want non-default passwords:
+## Implemented backend capabilities
 
-   ```bash
-   cp .env.example .env
-   ```
+### 1. CSV statement ingestion
 
-2. Create the raw-statement bind-mount directory (gitignored; Compose also creates it when missing on many setups):
+The backend exposes `POST /ingest/csv` and accepts:
 
-   ```bash
-   mkdir -p data/raw-statements
-   ```
+| Input | Notes |
+|---|---|
+| `account_id` | Required multipart form field; must reference an existing account. |
+| `file` | Required CSV upload; maximum size is 10 MiB. |
 
-3. Start Postgres (and optionally the **`api`** service from slice 4). Compose loads **`.env`** from this directory for variable substitution; the **`db`** service also reads that file so credentials stay in sync. The Compose **project name** defaults to this folder’s name (no fixed `name:` in [`compose.yaml`](compose.yaml)), so separate clones keep distinct containers/volumes. Override with [`docker compose --project-name …`](https://docs.docker.com/compose/how-tos/project-name/) if needed.
+Expected CSV columns today:
 
-   ```bash
-   docker compose up -d
-   ```
+| Column | Required | Notes |
+|---|---|---|
+| `transaction_date` | Yes | Canonical transaction date. |
+| `amount` | Yes | Signed numeric amount. |
+| `description` | Yes | Source description text. |
+| `posted_date` | No | Preserved when present. |
+| `currency` | No | Defaults to `USD` if omitted. |
 
-   Database only: `docker compose up -d db`. With API: use the same command (Compose starts **`db`** and **`api`**; **`api`** waits until **`db`** is healthy).
+The ingestion flow is intentionally strict and deterministic:
 
-   Optional explicit file: `docker compose --env-file .env up -d`.
+1. The uploaded bytes are size-checked.
+2. A SHA-256 hash is computed for the full statement file.
+3. The CSV is parsed into normalized rows.
+4. The account must already exist in the database.
+5. An advisory lock is taken to prevent racing identical ingests for the same account and file hash.
+6. The statement hash is checked for account-scoped idempotency.
+7. The raw file is stored on disk using a content-addressed path.
+8. The statement metadata is recorded in Postgres.
+9. Transactions are inserted with deterministic dedupe fingerprints protected by a unique constraint.
+10. Statement counters are updated with inserted and skipped-duplicate totals.
 
-   Postgres is published on **`127.0.0.1:${POSTGRES_PORT}`** only (not all interfaces); change [`compose.yaml`](compose.yaml) if you intentionally need LAN access.
+This gives the project two important safety properties:
 
-   Wait until Postgres is ready: `docker compose ps` should show **`db`** as **`healthy`**, or use `docker compose up -d --wait` if your Compose version supports it.
+| Safety property | How it works |
+|---|---|
+| Statement-level idempotency | `statements` has a unique constraint on `(account_id, sha256)`. Re-uploading the same file for the same account returns the prior statement result instead of reinserting rows. |
+| Transaction-level dedupe | `transactions` has a unique constraint on `dedupe_fingerprint`, so overlapping statements can skip already-seen rows without corrupting the ledger. |
 
-4. From the host, connect using **`DATABASE_URL`** in `.env` (see `.env.example`; defaults use `127.0.0.1` and **`POSTGRES_PORT`**).
+### 2. Raw statement file storage and purge
 
-5. Run the automated checks (compose config, readiness, `SELECT 1`, persistence across **`db` restart**, raw mount):
+Uploaded statement bytes are persisted on disk, not just transiently held during request processing. The storage module uses SHA-256-based content addressing so each file lives at a deterministic path derived from its hash.
 
-   ```bash
-   make verify-infra
-   ```
+This is useful for future workflows such as:
 
-   This runs [`scripts/verify-infra.sh`](scripts/verify-infra.sh) against **`.env.example`**. **Teardown:** if **`db` was not running** when the script started, it finishes with **`docker compose down`** (no `-v`, **`pgdata`** kept). If **`db` was already up**, the script **leaves your stack running**—only inspects it—so you are not surprised by missing teardown. To drop volumes when the script does tear down: `./scripts/verify-infra.sh --teardown-volumes`.
+- reprocessing derived data without asking the user to re-upload a file,
+- auditing how a statement was ingested,
+- supporting deletion and eventual retention policies.
 
-**Teardown**
+The backend also exposes `DELETE /statements/{statement_id}`. That endpoint removes the database record and attempts to delete the stored file from disk. If the statement does not exist, the API returns `404`.
 
-- Stop containers, **keep** Postgres data: `docker compose down`
-- Stop and **delete** the **`pgdata`** volume: `docker compose down -v`
+### 3. Categories and monthly envelope budgets
 
-**Next slice:** [#3](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/3) (auth + localhost-only app shell).
+The budgeting layer is already implemented and uses a simple envelope-style monthly model:
 
----
+| Endpoint group | Purpose |
+|---|---|
+| `POST /categories` and `GET /categories` | Create and list categories. |
+| `PUT /budgets/{year_month}` | Upsert monthly budget amounts by category. |
+| `GET /budgets/{year_month}` | List saved budget caps for a month. |
+| `GET /budgets/{year_month}/status` | Compute month-to-date spend, projection, and remaining budget. |
+| `POST /budgets/{year_month}/suggest` | Suggest budget amounts from historical spending across a configurable lookback window. |
 
-## Future features (post-MVP)
+Important budgeting behavior:
 
-These are **explicitly out of scope** for the MVP PRD or natural next steps after it:
+| Behavior | Details |
+|---|---|
+| Month key | Budgets are keyed by calendar month, represented internally as the first day of that month. |
+| Budget values | Amounts must be non-negative. |
+| Spend logic | Expenses are derived from transactions where `amount < 0`. |
+| Projection model | The current implementation projects monthly spend linearly from the selected `as_of` date. |
+| Suggestion model | Suggested amounts are based on historical totals averaged over the requested lookback window. |
 
-- **Multi-tenant SaaS**: billing, orgs, enterprise SSO, row-level security hardening, abuse controls.
-- **Bank linking**: Plaid / open banking / institution APIs instead of file upload.
-- **Broad PDF support**: institution-agnostic PDF parsing beyond the first targeted card format; richer OCR/table pipelines as needed.
-- **Real-time job streaming**: SSE/WebSocket for ingestion step updates (MVP uses polling).
-- **Full observability stack**: metrics/tracing/logging beyond step-level job records + LangSmith.
-- **Stricter production exposure**: HTTPS reverse proxy, tighter CSRF/CORS, rate limits, and possibly **removing or locking down** the read-only SQL tool when not on localhost.
-- **Advanced budgeting**: rollovers, multi-month envelopes, goals/debt snowball, scenario planning.
-- **Richer recurring & anomaly models**: weekly/annual cadences, merchant clustering across name variants, more sophisticated stats/ML—still with explainable UI.
-- **Standalone MCP server**: same tool schemas exposed over stdio/HTTP for external agent runtimes (today: embedded for speed of iteration).
-- **BYOK / per-user provider keys** in UI, encrypted at rest (single-user MVP can start with `.env`).
+Budget status becomes especially useful after transactions have been categorized because it links actual spending to budgeted categories through `transactions.category_id`.
 
----
+### 4. Deterministic categorization rules
+
+The backend already includes the beginnings of a rules-first categorization system:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /categorization/rules` | List existing regex rules. |
+| `POST /categorization/rules` | Create a new rule with category, regex pattern, priority, and optional retroactive application. |
+| `DELETE /categorization/rules/{rule_id}` | Delete a rule. |
+| `PUT /transactions/{transaction_id}/category` | Manually assign a category to a transaction. |
+| `POST /transactions/{transaction_id}/rule-proposal` | Dry-run a possible rule and report how many uncategorized transactions it would affect. |
+
+Key design choices:
+
+| Choice | Why it matters |
+|---|---|
+| PostgreSQL regex validation | Patterns are validated against the same regex engine the database will use. |
+| Priority ordering | Lower numeric priority wins when multiple rules match. |
+| Optional retroactive application | A new rule can be applied immediately to matching historical rows. |
+| Dry-run proposals | The system can show impact before a rule is persisted. |
+
+This is important because categorization is one of the areas where a future LLM assistant can help, but the baseline workflow remains deterministic and inspectable.
+
+### 5. Recurring spend detection
+
+Recurring detection is implemented as a deterministic backend feature exposed at `GET /recurring`.
+
+The current model looks for:
+
+| Signal | Current rule |
+|---|---|
+| Transaction type | Expenses only (`amount < 0`). |
+| Merchant grouping | Uses normalized descriptions. |
+| Cadence | Monthly-like spacing with a tolerance window. |
+| Minimum occurrences | Default is `3`, and the API enforces a lower bound of `3`. |
+| Amount consistency | Similar amounts must stay within the allowed variance used by the detection logic. |
+
+This is a good example of the project's philosophy: recurring-spend detection is implemented as transparent business logic now, and the future agent can explain or summarize the results later.
+
+## API surface summary
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | Liveness endpoint for the API service. |
+| `POST` | `/ingest/csv` | Upload and ingest a CSV statement for an existing account. |
+| `DELETE` | `/statements/{statement_id}` | Purge a statement record and attempt to remove the stored file. |
+| `POST` | `/categories` | Create a category. |
+| `GET` | `/categories` | List categories. |
+| `PUT` | `/budgets/{year_month}` | Upsert budget lines for a month. |
+| `GET` | `/budgets/{year_month}` | List budgets for a month. |
+| `GET` | `/budgets/{year_month}/status` | Return budget status metrics and projection. |
+| `POST` | `/budgets/{year_month}/suggest` | Suggest budget amounts from history. |
+| `GET` | `/categorization/rules` | List categorization rules. |
+| `POST` | `/categorization/rules` | Create a categorization rule. |
+| `DELETE` | `/categorization/rules/{rule_id}` | Delete a categorization rule. |
+| `PUT` | `/transactions/{transaction_id}/category` | Manually categorize a transaction. |
+| `POST` | `/transactions/{transaction_id}/rule-proposal` | Preview the impact of a possible rule. |
+| `GET` | `/recurring` | Return recurring charge candidates. |
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| [`backend/`](backend/) | Python backend package, tests, and container build context. |
+| [`backend/pfa/`](backend/pfa/) | Application code, schema SQL, and domain logic. |
+| [`backend/tests/`](backend/tests/) | Unit and integration tests for parsing, ingestion, storage, budgeting, categorization, and recurring logic. |
+| [`compose.yaml`](compose.yaml) | Local development stack definition. |
+| [`.env.example`](.env.example) | Template for local environment variables. |
+| [`scripts/verify-infra.sh`](scripts/verify-infra.sh) | Automated infrastructure verification for the Compose stack. |
+| [`Makefile`](Makefile) | Convenience commands for infra verification and backend tests. |
+| [`docs/PRD.md`](docs/PRD.md) | Product requirements and target architecture. |
+| [`data/raw-statements/`](data/raw-statements/) | Default host-side storage directory for uploaded statements. |
+
+## Local setup and run
+
+### Prerequisites
+
+You need Docker with Compose v2 for the default local workflow. For host-based backend development, use Python 3.11 or newer.
+
+### 1. Create your local environment file
+
+```bash
+cp .env.example .env
+```
+
+The `.env` file controls the database credentials, exposed host ports, and raw statement storage path. The defaults are set up for local-only development.
+
+### 2. Create the raw statement storage directory
+
+```bash
+mkdir -p data/raw-statements
+```
+
+This directory is bind-mounted into the API container and is ignored by git.
+
+### 3. Start the local stack
+
+```bash
+docker compose up -d
+```
+
+That starts:
+
+- **`db`** on `127.0.0.1:${POSTGRES_PORT}`
+- **`api`** on `127.0.0.1:${API_PORT}`
+
+The API waits for the database to become healthy before starting. On startup, the backend applies the schema automatically if `DATABASE_URL` is configured.
+
+### 4. Verify infrastructure wiring
+
+```bash
+make verify-infra
+```
+
+This script validates the Compose configuration, checks database readiness, confirms connectivity, verifies that the published port matches `POSTGRES_PORT`, confirms data survives a container restart, and checks that the raw-statement bind mount exists.
+
+### 5. Run the backend directly on the host (optional)
+
+If you prefer to run the API outside Docker while still using the Compose database:
+
+```bash
+cd backend
+python3 -m pip install -e ".[dev]"
+uvicorn pfa.main:app --reload
+```
+
+With the default `.env.example`, the backend connects to PostgreSQL through `DATABASE_URL=postgresql://pfa:pfa_dev_password_change_me@127.0.0.1:5432/pfa`.
+
+### 6. Stop the stack
+
+```bash
+docker compose down
+```
+
+To remove the PostgreSQL named volume as well:
+
+```bash
+docker compose down -v
+```
+
+## Testing
+
+The backend test suite combines pure unit tests with database-backed integration tests.
+
+| Test area | Coverage |
+|---|---|
+| CSV parsing | Required columns, normalization, and parse errors. |
+| Dedupe logic | Fingerprint behavior and duplicate handling. |
+| File storage | Hash generation, content-addressed storage, and file deletion behavior. |
+| Ingestion HTTP flow | Upload validation, idempotency, unknown-account handling, and purge behavior. |
+| Budgeting | Category creation, budget upsert/list, projections, and suggestions. |
+| Categorization | Regex validation, priority ordering, retroactive apply, manual correction, and dry-run proposals. |
+| Recurring detection | Pure recurrence logic and API behavior. |
+
+Run the backend tests with a live PostgreSQL database reachable at `DATABASE_URL`:
+
+```bash
+export DATABASE_URL=postgresql://pfa:pfa_dev_password_change_me@127.0.0.1:5432/pfa
+make test-backend
+```
+
+Integration tests are skipped automatically when `DATABASE_URL` is not set.
+
+## Security and privacy posture
+
+This project is intentionally conservative in local development:
+
+| Posture | Current behavior |
+|---|---|
+| Network exposure | Compose binds the API and Postgres to `127.0.0.1` by default. |
+| Data ownership | Raw statements and the database live on local storage you control. |
+| Deterministic processing | Core ingestion and ledger behavior does not depend on an external AI provider. |
+| Future agent safety | The PRD specifies confirm-before-write behavior and aggregate-first model context. |
+
+This does not make the project production-ready by itself. If you later expose it beyond localhost, you will need to add the usual operational controls such as TLS termination, authentication hardening, backup strategy, and stricter request-surface protections.
+
+## Roadmap and planned work
+
+The implemented backend is the foundation for a broader product. The PRD calls out several next layers:
+
+| Planned area | Summary |
+|---|---|
+| Authentication and app shell | Single-user login and the first real UI shell. |
+| Async jobs and job status | Durable ingestion jobs with step-level progress. |
+| Frontend application | Vite + React + TypeScript client for upload, charts, budgeting, and chat. |
+| PDF ingestion | Targeted support for selected card statement formats. |
+| Agent and tool layer | Embedded MCP-shaped tools used by a backend-run AI assistant. |
+| Observability | LangSmith tracing for agent and tool execution. |
+| More analytics | Anomaly detection, richer cashflow views, and deeper budgeting workflows. |
 
 ## Disclaimer
 
-This project helps you **organize and analyze your own data**. It is **not** financial, legal, or tax advice. You are responsible for securing your machine, backups, and any keys (LLM, LangSmith, database).
+This project is a tool for organizing and analyzing your own financial data. It is not financial, legal, or tax advice. You are responsible for securing your machine, protecting backups, and safeguarding any credentials or API keys you use with the system.
