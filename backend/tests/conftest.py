@@ -10,6 +10,12 @@ import psycopg
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def clear_langchain_tracing_env(monkeypatch):
+    """Keep chat/tool tests deterministic vs developer LANGCHAIN_TRACING_V2; tests that need tracing opt in."""
+    monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)
+
+
 def pytest_collection_modifyitems(config, items):
     if os.environ.get("DATABASE_URL"):
         return
