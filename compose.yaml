@@ -31,7 +31,6 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}:${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 3s
