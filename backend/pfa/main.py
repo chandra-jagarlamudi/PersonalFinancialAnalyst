@@ -66,6 +66,7 @@ app.include_router(budget_router)
 app.include_router(categorization_router)
 app.include_router(recurring_router)
 app.include_router(chat_router)
+app.include_router(anomalies_router)
 
 
 @app.get("/health")
