@@ -87,6 +87,30 @@ def test_ingest_invalid_csv_returns_422(client, sample_account_id, upload_dir):
     assert r.status_code == 422
 
 
+def test_same_file_under_different_account_is_not_a_duplicate(client, clean_db, upload_dir):
+    # Create two separate accounts.
+    iid = uuid.uuid4()
+    aid1, aid2 = uuid.uuid4(), uuid.uuid4()
+    with clean_db.cursor() as cur:
+        cur.execute("INSERT INTO institutions (id, name) VALUES (%s, %s)", (str(iid), "Bank"))
+        for aid in (aid1, aid2):
+            cur.execute(
+                "INSERT INTO accounts (id, institution_id, name, currency) VALUES (%s, %s, %s, %s)",
+                (str(aid), str(iid), "Checking", "USD"),
+            )
+    clean_db.commit()
+
+    r1 = _post_csv(client, aid1)
+    assert r1.status_code == 200
+    assert r1.json()["duplicate_statement"] is False
+
+    r2 = _post_csv(client, aid2)
+    assert r2.status_code == 200
+    assert r2.json()["duplicate_statement"] is False
+    assert r2.json()["inserted"] == 2
+    assert r2.json()["statement_id"] != r1.json()["statement_id"]
+
+
 def test_ingest_csv_over_max_size_returns_413(client, sample_account_id, monkeypatch, upload_dir):
     from pfa import main
     monkeypatch.setattr(main, "MAX_CSV_UPLOAD_BYTES", 64)
