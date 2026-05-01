@@ -19,7 +19,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
 | 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
 | 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | **Implemented** |
-| 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | Planned |
+| 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | **Implemented** |
 | 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
 
 **Slice 0** in this repo: [`compose.yaml`](compose.yaml), [`.env.example`](.env.example), [`scripts/verify-infra.sh`](scripts/verify-infra.sh), [`Makefile`](Makefile) (`verify-infra`). Tracked in [issue #2](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/2); shipped on **`main`** via [#15](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/15) with follow-ups in [#17](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/17). Canonical PRD file added in [#16](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/pull/16).
@@ -29,6 +29,8 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 **Slice 6** ([issue #8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8)): Envelope budgets per calendar month and category. **`categories`** table (`slug`, `name`) with `POST /categories` and `GET /categories`. **`budgets`** rows keyed by `(category_id, month)` where `month` is `YYYY-MM-01`; `PUT /budgets/{year_month}` upserts `{items: [{category_id, amount}]}`, `GET /budgets/{year_month}` lists caps. **`GET /budgets/{year_month}/status`** sums expenses (`amount < 0`) from **`transactions.category_id`** MTD (optional `as_of` query) and returns linear **projected** month spend plus remaining amounts. **`POST /budgets/{year_month}/suggest`** proposes caps from prior-window expense totals divided by `lookback_months` (default 6). Categorization rules remain slice 7; link spending by setting `transactions.category_id`.
 
 **Slice 10** ([issue #12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12)): Embedded **MCP-shaped** read tools plus **SSE streaming chat**. **`GET /chat/tools`** returns JSON-schema manifests (`ledger_summary`: aggregate counts and expense/income totals, optional `account_id`). **`POST /chat/stream`** accepts `{ "message": "..." }` and emits **`text/event-stream`** frames (`tool_call`, `tool_result`, `delta`, `done`). The MVP planner is **deterministic** (keyword routing); swap-in LLM planner later without changing tool contracts.
+
+**Slice 11** ([issue #13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13)): **Optional LangSmith** wrapping on **`invoke_tool`** via **`LANGCHAIN_TRACING_V2=true`** (+ **`LANGCHAIN_API_KEY`**, **`LANGCHAIN_PROJECT`**). When tracing is off or **`langsmith`** is missing, behavior matches the slice 10 path. See [`.env.example`](.env.example).
 
 ---
 

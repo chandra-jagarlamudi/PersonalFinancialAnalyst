@@ -7,7 +7,7 @@ import json
 import re
 from collections.abc import AsyncIterator
 
-from pfa.agent_tools import invoke_tool
+from pfa.trace_invoke import invoke_tool_traced
 
 
 def format_sse(event: dict) -> str:
@@ -48,7 +48,7 @@ async def stream_chat_turn(message: str) -> AsyncIterator[str]:
     last_result: dict | None = None
     for name, args in calls:
         yield format_sse({"type": "tool_call", "name": name, "arguments": args})
-        last_result = await asyncio.to_thread(invoke_tool, name, args)
+        last_result = await asyncio.to_thread(invoke_tool_traced, name, args)
         yield format_sse({"type": "tool_result", "name": name, "content": last_result})
 
     if last_result is not None:
