@@ -108,7 +108,7 @@ From the repository root:
 
 4. From the host, connect using **`DATABASE_URL`** in `.env` (see `.env.example`; defaults use `127.0.0.1` and **`POSTGRES_PORT`**).
 
-5. Run the automated checks (compose config, readiness, `SELECT 1`, persistence across **`db` restart`, raw mount):
+5. Run the automated checks (compose config, readiness, `SELECT 1`, persistence across **`db` restart**, raw mount):
 
    ```bash
    make verify-infra
