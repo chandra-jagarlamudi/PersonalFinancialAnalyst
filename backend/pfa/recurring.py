@@ -37,6 +37,8 @@ def _decimal_median(values: list[Decimal]) -> Decimal:
 
 
 def detect_recurring(transactions: list[TxRow], min_occurrences: int = 3) -> list[RecurringCandidate]:
+    if min_occurrences < 3:
+        raise ValueError("min_occurrences must be at least 3 (monthly recurring threshold)")
     groups: dict[str, list[TxRow]] = {}
     for tx in transactions:
         groups.setdefault(tx.description_normalized, []).append(tx)

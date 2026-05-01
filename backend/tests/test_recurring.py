@@ -10,8 +10,6 @@ import pytest
 
 from pfa.recurring import RecurringCandidate, TxRow, detect_recurring
 
-pytestmark = pytest.mark.integration
-
 
 def _tx(desc: str, date: datetime.date, amount: str = "-15.99", category_id=None) -> TxRow:
     return TxRow(
@@ -93,8 +91,16 @@ def test_mixed_dataset_only_recurring_returned():
     assert result[0].merchant == "netflix"
 
 
+def test_detect_recurring_rejects_min_occurrences_below_three():
+    txs = _monthly("netflix", datetime.date(2024, 1, 15), 4)
+    with pytest.raises(ValueError, match="min_occurrences"):
+        detect_recurring(txs, min_occurrences=2)
+
+
 # ── HTTP integration test ────────────────────────────────────────────────────
 
+
+@pytest.mark.integration
 def test_get_recurring_http(client, sample_account_id, clean_db):
     dates = [
         datetime.date(2024, 1, 15),
@@ -120,3 +126,12 @@ def test_get_recurring_http(client, sample_account_id, clean_db):
     assert len(body) == 1
     assert body[0]["merchant"] == "netflix"
     assert body[0]["occurrences"] == 3
+
+
+@pytest.mark.integration
+def test_get_recurring_rejects_min_occurrences_below_three(client, sample_account_id):
+    r = client.get(
+        "/recurring",
+        params={"account_id": str(sample_account_id), "min_occurrences": 2},
+    )
+    assert r.status_code == 422

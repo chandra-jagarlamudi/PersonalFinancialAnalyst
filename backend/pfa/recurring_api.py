@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from pfa.db import connect
@@ -26,7 +27,17 @@ class RecurringResponse(BaseModel):
 
 
 @router.get("", response_model=list[RecurringResponse])
-def list_recurring(account_id: UUID | None = None, min_occurrences: int = 3):
+def list_recurring(
+    account_id: UUID | None = None,
+    min_occurrences: Annotated[
+        int,
+        Query(
+            ge=3,
+            le=120,
+            description="Minimum charges for the same merchant to qualify (product rule: ≥3)",
+        ),
+    ] = 3,
+):
     with connect() as conn:
         if account_id is not None:
             rows = conn.execute(
