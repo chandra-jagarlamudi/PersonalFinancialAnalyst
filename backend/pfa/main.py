@@ -14,6 +14,9 @@ from pfa.csv_parse import CsvParseError, parse_csv_bytes
 from pfa.db import connect, ensure_schema
 from pfa.ingest import account_exists, ingest_rows
 
+# Upper bound for CSV body size (single read); avoids unbounded memory use per request.
+MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
+
 
 class IngestResponse(BaseModel):
     inserted: int
@@ -43,13 +46,17 @@ def ingest_csv(
     account_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
 ):
-    raw = file.file.read()
+    raw = file.file.read(MAX_CSV_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_CSV_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"CSV exceeds maximum size of {MAX_CSV_UPLOAD_BYTES} bytes",
+        )
     try:
         rows = parse_csv_bytes(raw)
     except CsvParseError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     with connect() as conn:
-        ensure_schema(conn)
         if not account_exists(conn, account_id):
             raise HTTPException(status_code=404, detail="account not found")
         inserted, skipped = ingest_rows(conn, account_id, rows)

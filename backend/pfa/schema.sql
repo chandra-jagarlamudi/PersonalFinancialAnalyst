@@ -1,6 +1,8 @@
 -- Minimal ledger + transactions for slice 4 (CSV ingest + dedupe).
 -- Idempotent: safe to apply on every API startup.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS institutions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,

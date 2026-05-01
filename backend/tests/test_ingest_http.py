@@ -55,3 +55,16 @@ def test_ingest_invalid_csv_returns_422(client, sample_account_id):
         },
     )
     assert r.status_code == 422
+
+
+def test_ingest_csv_over_max_size_returns_413(client, sample_account_id, monkeypatch):
+    from pfa import main
+
+    monkeypatch.setattr(main, "MAX_CSV_UPLOAD_BYTES", 64)
+    payload = b"x" * 65
+    r = client.post(
+        "/ingest/csv",
+        data={"account_id": str(sample_account_id)},
+        files={"file": ("big.csv", payload, "text/csv")},
+    )
+    assert r.status_code == 413
