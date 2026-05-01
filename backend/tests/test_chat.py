@@ -9,6 +9,7 @@ import uuid
 
 import pytest
 
+from pfa.agent_tools import tool_ledger_summary
 from pfa.chat_agent import format_sse, plan_tool_calls, stream_chat_turn
 
 
@@ -42,6 +43,29 @@ def test_stream_chat_fallback_without_tools():
     raw = asyncio.run(collect())
     events = _parse_sse(raw)
     assert any(e.get("type") == "delta" for e in events)
+    assert events[-1] == {"type": "done"}
+
+
+def test_stream_chat_emits_tool_error_and_done(monkeypatch):
+    def _boom(name, args):
+        raise ValueError("bad account_id")
+
+    monkeypatch.setattr("pfa.chat_agent.invoke_tool", _boom)
+
+    async def collect():
+        parts = []
+        async for chunk in stream_chat_turn("Give me a ledger summary"):
+            parts.append(chunk)
+        return "".join(parts)
+
+    raw = asyncio.run(collect())
+    events = _parse_sse(raw)
+    assert {"type": "tool_call", "name": "ledger_summary", "arguments": {}} in events
+    assert {
+        "type": "tool_result",
+        "name": "ledger_summary",
+        "error": {"type": "ValueError", "message": "bad account_id"},
+    } in events
     assert events[-1] == {"type": "done"}
 
 
@@ -83,3 +107,11 @@ def test_chat_stream_ledger_summary_tool(client, sample_account_id, clean_db):
     deltas = [e for e in events if e.get("type") == "delta"]
     assert any("12.5000" in d["text"] for d in deltas)
     assert events[-1] == {"type": "done"}
+
+
+@pytest.mark.integration
+def test_tool_ledger_summary_formats_zero_totals_with_scale(clean_db):
+    summary = tool_ledger_summary()
+    assert summary["transaction_count"] == 0
+    assert summary["expense_total_abs"] == "0.0000"
+    assert summary["income_total"] == "0.0000"

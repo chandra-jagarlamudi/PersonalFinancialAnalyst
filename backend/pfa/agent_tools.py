@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pfa.db import connect
 
+MONEY_PLACES = Decimal("0.0001")
+
 
 def list_tool_specs() -> list[dict[str, Any]]:
     """JSON-schema-shaped manifests for agent discovery."""
@@ -57,7 +59,9 @@ def tool_ledger_summary(*, account_id: str | None = None) -> dict[str, Any]:
     with connect() as conn:
         row = conn.execute(sql, params).fetchone()
     assert row is not None
-    cnt, expense_abs, income_sum = row[0], Decimal(row[1]), Decimal(row[2])
+    cnt = row[0]
+    expense_abs = Decimal(row[1]).quantize(MONEY_PLACES)
+    income_sum = Decimal(row[2]).quantize(MONEY_PLACES)
     return {
         "transaction_count": int(cnt),
         "expense_total_abs": str(expense_abs),
