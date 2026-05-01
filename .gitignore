@@ -1,3 +1,6 @@
+# Git worktrees (local parallel branches)
+.worktrees/
+
 # Local bind mounts (raw uploads); Postgres data uses the named Docker volume `pgdata`.
 data/
 

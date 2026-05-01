@@ -17,7 +17,7 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 | 6 | Budgeting (envelope monthly + suggest + status) | [#8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8) | **Implemented** |
 | 7 | Rules-first categorization + rule proposals | [#9](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/9) | Planned |
 | 8 | Recurring detection + UI | [#10](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/10) | Planned |
-| 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | Planned |
+| 9 | Anomaly detection + UI | [#11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11) | **Implemented** |
 | 10 | Agent + tools + streaming chat | [#12](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/12) | Planned |
 | 11 | LangSmith tracing | [#13](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/13) | Planned |
 | 12 | Targeted credit card PDF (HITL) | [#14](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/14) | Planned |
@@ -27,6 +27,8 @@ Self-hosted personal finance stack: ingest bank and credit card statements (CSV 
 **Slice 4** ([issue #6](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/6)): [`backend/`](backend/) FastAPI app with `POST /ingest/csv` (multipart form field `account_id` + CSV `file`, **max 10 MiB** per upload), deterministic `dedupe_fingerprint` (SHA-256) and a Postgres `UNIQUE` constraint so replays increment `skipped_duplicates`. CSV columns: `transaction_date`, `amount`, `description`; optional `posted_date`, `currency` (default USD). Schema bootstrap runs once at API startup (not per request). Compose service **`api`** listens on `127.0.0.1:${API_PORT:-8000}` (`GET /health`). Tests: install deps under `backend/` and run `make test-backend` with `DATABASE_URL` pointing at the Compose database.
 
 **Slice 6** ([issue #8](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/8)): Envelope budgets per calendar month and category. **`categories`** table (`slug`, `name`) with `POST /categories` and `GET /categories`. **`budgets`** rows keyed by `(category_id, month)` where `month` is `YYYY-MM-01`; `PUT /budgets/{year_month}` upserts `{items: [{category_id, amount}]}`, `GET /budgets/{year_month}` lists caps. **`GET /budgets/{year_month}/status`** sums expenses (`amount < 0`) from **`transactions.category_id`** MTD (optional `as_of` query) and returns linear **projected** month spend plus remaining amounts. **`POST /budgets/{year_month}/suggest`** proposes caps from prior-window expense totals divided by `lookback_months` (default 6). Categorization rules remain slice 7; link spending by setting `transactions.category_id`.
+
+**Slice 9** ([issue #11](https://github.com/chandra-jagarlamudi/PersonalFinancialAnalyst/issues/11)): Deterministic anomaly signals over expense rows (no LLM). **`GET /anomalies`** loads negative amounts from Postgres (optional `account_id`), runs **`detect_anomalies`** over a configurable **`lookback_days`** window with **`as_of`** anchor date, and returns `large_spend` (vs merchant median in-window), **`new_merchant`** (first global spend within **`new_merchant_days`**), and **`monthly_spike`** (latest calendar month vs median of prior months, minimum history threshold). Pure logic tests plus HTTP integration mirroring recurring/budget patterns.
 
 ---
 
