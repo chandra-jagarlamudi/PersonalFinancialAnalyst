@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pfa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pfa_dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-pfa}
+    ports:
+      # Bind loopback only by default (matches localhost-first posture in README).
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${RAW_STATEMENTS_HOST_PATH:-./data/raw-statements}:${RAW_STATEMENTS_CONTAINER_PATH:-/data/raw-statements}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+volumes:
+  pgdata:
