@@ -24,9 +24,15 @@ export default function StatementsPage() {
   async function load() {
     setLoading(true)
     try {
-      const [data, acctList] = await Promise.all([listStatements(), listAccounts()])
+      const data = await listStatements()
       setStatements(data)
-      setAccounts(new Map(acctList.map(a => [a.id, a])))
+
+      try {
+        const acctList = await listAccounts()
+        setAccounts(new Map(acctList.map(a => [a.id, a])))
+      } catch {
+        setAccounts(new Map())
+      }
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load statements' })
     } finally {
