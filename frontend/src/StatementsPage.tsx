@@ -40,7 +40,7 @@ export default function StatementsPage() {
     try {
       await purgeStatement(id)
       setStatements(prev => prev.filter(s => s.id !== id))
-      setBanner({ type: 'success', message: 'Statement and its transactions permanently deleted.' })
+      setBanner({ type: 'success', message: 'Statement removed from the app. Associated file cleanup may complete separately.' })
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Purge failed' })
     } finally {
