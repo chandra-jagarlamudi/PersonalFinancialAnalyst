@@ -202,6 +202,7 @@ export default function BudgetPage() {
                       type="number"
                       step="0.01"
                       min="0"
+                      aria-label={`Budgeted amount for ${cat.name}`}
                       value={amountMap[cat.id] ?? '0'}
                       onChange={(e) =>
                         setAmountMap((prev) => ({ ...prev, [cat.id]: e.target.value }))
