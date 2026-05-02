@@ -63,7 +63,7 @@ def db_conn(database_url):
 def clean_db(db_conn):
     with db_conn.cursor() as cur:
         cur.execute(
-            "TRUNCATE auth_sessions, budgets, transactions, statements, accounts, institutions, categories RESTART IDENTITY CASCADE"
+            "TRUNCATE auth_sessions, budgets, transactions, statements, ingest_jobs, ingest_job_steps, accounts, institutions, categories RESTART IDENTITY CASCADE"
         )
     db_conn.commit()
     yield db_conn

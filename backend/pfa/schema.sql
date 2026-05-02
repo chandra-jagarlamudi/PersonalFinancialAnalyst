@@ -28,6 +28,46 @@ CREATE TABLE IF NOT EXISTS accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Slice 4: durable async ingest job queue.
+CREATE TABLE IF NOT EXISTS ingest_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  statement_id UUID,
+  filename TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  byte_size BIGINT NOT NULL,
+  parsed_rows INTEGER,
+  inserted_rows INTEGER,
+  skipped_duplicates INTEGER,
+  error_detail TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingest_jobs_status_created_at
+  ON ingest_jobs(status, created_at DESC);
+
+-- Idempotent column addition for DBs created before slice 5 job support.
+ALTER TABLE ingest_jobs
+  ADD COLUMN IF NOT EXISTS statement_id UUID;
+
+CREATE TABLE IF NOT EXISTS ingest_job_steps (
+  job_id UUID NOT NULL REFERENCES ingest_jobs(id) ON DELETE CASCADE,
+  step_key TEXT NOT NULL,
+  status TEXT NOT NULL,
+  item_count INTEGER,
+  detail TEXT,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  PRIMARY KEY (job_id, step_key)
+);
+
 -- Slice 5: raw file storage with hash-level idempotency.
 CREATE TABLE IF NOT EXISTS statements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
