@@ -29,6 +29,34 @@ export type AccountAlias = {
   alias: string
 }
 
+export type DashboardCashflowPoint = {
+  month: string
+  income_total: string
+  expense_total_abs: string
+  net_total: string
+}
+
+export type DashboardCategorySpendPoint = {
+  month: string
+  category_id: string | null
+  category_name: string
+  spend_total: string
+}
+
+export type Transaction = {
+  id: string
+  account_id: string
+  account_name: string
+  institution_name: string
+  transaction_date: string
+  posted_date: string | null
+  amount: string
+  currency: string
+  description_raw: string
+  category_id: string | null
+  category_name: string | null
+}
+
 type RequestOptions = Omit<RequestInit, 'credentials'> & {
   bodyJson?: unknown
 }
@@ -156,5 +184,69 @@ export function createAccountAlias(accountId: string, alias: string): Promise<Ac
   return request<AccountAlias>('/account-aliases', {
     method: 'POST',
     bodyJson: { account_id: accountId, alias },
+  })
+}
+
+export function listCashflow(months = 6): Promise<DashboardCashflowPoint[]> {
+  return request<DashboardCashflowPoint[]>(`/dashboard/cashflow?months=${months}`)
+}
+
+export function listCategorySpend(months = 6): Promise<DashboardCategorySpendPoint[]> {
+  return request<DashboardCategorySpendPoint[]>(
+    `/dashboard/category-spend?months=${months}`,
+  )
+}
+
+export function listTransactions(params?: {
+  accountId?: string
+  categoryId?: string
+  q?: string
+  startDate?: string
+  endDate?: string
+  limit?: number
+}): Promise<Transaction[]> {
+  const search = new URLSearchParams()
+  if (params?.accountId) {
+    search.set('account_id', params.accountId)
+  }
+  if (params?.categoryId) {
+    search.set('category_id', params.categoryId)
+  }
+  if (params?.q) {
+    search.set('q', params.q)
+  }
+  if (params?.startDate) {
+    search.set('start_date', params.startDate)
+  }
+  if (params?.endDate) {
+    search.set('end_date', params.endDate)
+  }
+  if (params?.limit) {
+    search.set('limit', String(params.limit))
+  }
+  const suffix = search.toString()
+  return request<Transaction[]>(`/transactions${suffix ? `?${suffix}` : ''}`)
+}
+
+export function createTransaction(body: {
+  accountId: string
+  transactionDate: string
+  postedDate?: string
+  amount: string
+  currency: string
+  description: string
+  categoryId?: string
+}): Promise<Transaction> {
+  return request<Transaction>('/transactions', {
+    method: 'POST',
+    bodyJson: {
+      account_id: body.accountId,
+      transaction_date: body.transactionDate,
+      posted_date: body.postedDate || null,
+      amount: body.amount,
+      currency: body.currency,
+      description: body.description,
+      category_id: body.categoryId || null,
+    },
   })
 }

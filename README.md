@@ -27,6 +27,7 @@ The repo is ahead of the old README in a few areas. Today it contains:
 | Raw statement storage | Implemented | Files are stored on disk using content-addressed paths under the configured upload directory. |
 | Statement purge | Implemented | Removes DB metadata and attempts to delete the stored file. |
 | Ledger bootstrap workflows | Implemented | Institutions, accounts, account aliases, starter categories, and category edits can now be managed through authenticated APIs and the setup UI. |
+| Dashboard and transaction explorer | Implemented | Manual transactions can seed the ledger, dashboard aggregates show cashflow/category spend over time, and a transaction explorer supports filtering. |
 | Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
 | Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
 | Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
@@ -322,7 +323,11 @@ npm run dev
 
 Open `http://127.0.0.1:5173` and sign in with `PFA_AUTH_USERNAME` / `PFA_AUTH_PASSWORD` from `.env`. The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`, so the browser can keep the session cookie while talking to protected backend routes.
 
-After logging in, open the **Setup** page in the shell to create institutions, accounts, account aliases, and starter categories before using ingestion or analytics workflows.
+After logging in:
+
+- open **Setup** to create institutions, accounts, account aliases, and starter categories;
+- open **Transactions** to add sample manual transactions before ingestion is ready;
+- use the default **Dashboard** route to view cashflow and category-spend summaries.
 
 ### 7. Stop the stack
 
@@ -346,6 +351,7 @@ The repository now includes both backend and frontend validation paths.
 | Dedupe logic | Fingerprint behavior and duplicate handling. |
 | File storage | Hash generation, content-addressed storage, and file deletion behavior. |
 | Ingestion HTTP flow | Upload validation, idempotency, unknown-account handling, and purge behavior. |
+| Dashboard and explorer | Manual transaction entry, dashboard cashflow/category views, and filtered transaction listing. |
 | Budgeting | Category creation, budget upsert/list, projections, and suggestions. |
 | Categorization | Regex validation, priority ordering, retroactive apply, manual correction, and dry-run proposals. |
 | Recurring detection | Pure recurrence logic and API behavior. |
@@ -398,7 +404,7 @@ The implemented backend is the foundation for a broader product. The PRD calls o
 | Authentication and app shell | Implemented as the first slice; later slices deepen the shell into ingestion and analytics workflows. |
 | Async jobs and job status | Durable ingestion jobs with step-level progress. |
 | Ledger bootstrap workflows | Implemented through the authenticated setup page and protected setup APIs. |
-| Frontend application | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
+| Frontend application | Vite + React + TypeScript client now includes login, setup, dashboard, and transaction explorer; upload, budgeting, and chat remain to be built on top. |
 | PDF ingestion | Targeted support for selected card statement formats. |
 | Agent and tool layer | Embedded MCP-shaped tools used by a backend-run AI assistant. |
 | Observability | LangSmith tracing for agent and tool execution. |

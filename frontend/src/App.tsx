@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
+import { DashboardPage } from './DashboardPage'
 import { SetupPage } from './SetupPage'
+import { TransactionsPage } from './TransactionsPage'
 import './App.css'
 
 type ProtectedState =
@@ -68,49 +70,11 @@ function LoginForm({
   )
 }
 
-function Overview({
-  username,
-  protectedState,
-}: {
-  username: string
-  protectedState: ProtectedState
-}) {
+function Overview({ username }: { username: string }) {
   return (
     <section className="panel">
       <h2>Welcome back, {username}</h2>
-      <p>
-        This first shell proves the frontend can authenticate, keep a session,
-        and reach protected backend APIs.
-      </p>
-      <div className="status-grid">
-        <article>
-          <span className="metric-label">Session</span>
-          <strong>Authenticated</strong>
-        </article>
-        <article>
-          <span className="metric-label">Protected API</span>
-          <strong>
-            {protectedState.status === 'ready'
-              ? 'Reachable'
-              : protectedState.status === 'error'
-                ? 'Failed'
-                : protectedState.status === 'loading'
-                  ? 'Loading…'
-                  : 'Not started'}
-          </strong>
-        </article>
-        <article>
-          <span className="metric-label">Categories</span>
-          <strong>
-            {protectedState.status === 'ready'
-              ? protectedState.categoryCount
-              : '—'}
-          </strong>
-        </article>
-      </div>
-      {protectedState.status === 'error' ? (
-        <p className="error-banner">{protectedState.message}</p>
-      ) : null}
+      <p>The dashboard and transaction explorer are now available in the app shell.</p>
     </section>
   )
 }
@@ -164,16 +128,23 @@ function Shell({
       </header>
       <div className="shell-body">
         <nav className="shell-nav">
-          <Link to="/">Overview</Link>
+          <Link to="/">Dashboard</Link>
           <Link to="/setup">Setup</Link>
+          <Link to="/transactions">Transactions</Link>
           <Link to="/smoke">API smoke</Link>
         </nav>
         <Routes>
-          <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
+          <Route path="/" element={<DashboardPage onError={(message) => {
+            if (message) {
+              onCategoryCountChange(0)
+            }
+          }} />} />
+          <Route path="/overview" element={<Overview username={username} />} />
           <Route
             path="/setup"
             element={<SetupPage onCategoryCountChange={onCategoryCountChange} />}
           />
+          <Route path="/transactions" element={<TransactionsPage onError={() => undefined} />} />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
