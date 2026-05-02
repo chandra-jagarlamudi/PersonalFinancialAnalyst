@@ -93,10 +93,10 @@ def test_same_file_under_different_account_is_not_a_duplicate(client, clean_db, 
     aid1, aid2 = uuid.uuid4(), uuid.uuid4()
     with clean_db.cursor() as cur:
         cur.execute("INSERT INTO institutions (id, name) VALUES (%s, %s)", (str(iid), "Bank"))
-        for aid in (aid1, aid2):
+        for aid, name in ((aid1, "Checking A"), (aid2, "Checking B")):
             cur.execute(
                 "INSERT INTO accounts (id, institution_id, name, currency) VALUES (%s, %s, %s, %s)",
-                (str(aid), str(iid), "Checking", "USD"),
+                (str(aid), str(iid), name, "USD"),
             )
     clean_db.commit()
 

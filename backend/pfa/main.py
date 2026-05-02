@@ -31,6 +31,7 @@ from pfa.ingest import (
     update_statement_counts,
 )
 from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
+from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -66,6 +67,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 
 app.include_router(auth_router)
+app.include_router(setup_router, dependencies=[Depends(require_authenticated)])
 app.include_router(budget_router, dependencies=[Depends(require_authenticated)])
 app.include_router(
     categorization_router, dependencies=[Depends(require_authenticated)]

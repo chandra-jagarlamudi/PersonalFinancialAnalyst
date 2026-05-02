@@ -70,4 +70,27 @@ describe('App', () => {
       )
     })
   })
+
+  it('loads the setup workflow for an authenticated session', async () => {
+    mockFetchSequence([
+      { body: { authenticated: true, username: 'admin' } },
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: [] },
+    ])
+
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: /authenticated app shell/i }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: /setup/i }))
+
+    expect(
+      await screen.findByRole('heading', { name: /ledger bootstrap workflows/i }),
+    ).toBeInTheDocument()
+  })
 })

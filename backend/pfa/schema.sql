@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS institutions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_institutions_name_unique
+  ON institutions(name);
+
 CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
@@ -27,6 +30,19 @@ CREATE TABLE IF NOT EXISTS accounts (
   currency TEXT NOT NULL DEFAULT 'USD',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_institution_name_unique
+  ON accounts(institution_id, name);
+
+CREATE TABLE IF NOT EXISTS account_aliases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  alias TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_aliases_account_id
+  ON account_aliases(account_id);
 
 -- Slice 5: raw file storage with hash-level idempotency.
 CREATE TABLE IF NOT EXISTS statements (
