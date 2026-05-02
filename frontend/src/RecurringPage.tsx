@@ -42,13 +42,17 @@ function ChargeRow({ charge }: { charge: RecurringCharge }) {
           onClick={() => setExpanded((e) => !e)}
           aria-expanded={expanded}
         >
-          {expanded ? 'Hide dates' : 'Show dates'}
+          {expanded ? 'Hide transactions' : 'Show transactions'}
         </button>
       </div>
       {expanded && (
-        <ul className="recurring-dates">
-          {charge.monthly_dates.map((d) => (
-            <li key={d}>{d}</li>
+        <ul className="recurring-transactions">
+          {charge.supporting_transactions.map((tx) => (
+            <li key={tx.id} className="recurring-tx">
+              <span className="recurring-tx-date">{tx.transaction_date}</span>
+              <span className="recurring-tx-desc">{tx.description}</span>
+              <span className="recurring-tx-amount">{formatAmount(tx.amount)}</span>
+            </li>
           ))}
         </ul>
       )}

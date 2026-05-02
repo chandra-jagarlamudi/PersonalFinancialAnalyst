@@ -17,7 +17,7 @@ _RECURRING_CSV = (
 )
 
 
-def _ingest(client, account_id, csv_bytes, upload_dir):
+def _ingest(client, account_id, csv_bytes):
     return client.post(
         "/ingest/csv",
         data={"account_id": str(account_id)},
@@ -32,7 +32,7 @@ def test_list_recurring_empty(client, sample_account_id):
 
 
 def test_list_recurring_after_ingest(client, sample_account_id, upload_dir):
-    ingest_r = _ingest(client, sample_account_id, _RECURRING_CSV, upload_dir)
+    ingest_r = _ingest(client, sample_account_id, _RECURRING_CSV)
     assert ingest_r.status_code == 200, ingest_r.text
 
     r = client.get("/recurring", params={"account_id": str(sample_account_id)})
@@ -45,7 +45,7 @@ def test_list_recurring_after_ingest(client, sample_account_id, upload_dir):
 
 
 def test_list_recurring_account_filter(client, sample_account_id, upload_dir):
-    _ingest(client, sample_account_id, _RECURRING_CSV, upload_dir)
+    _ingest(client, sample_account_id, _RECURRING_CSV)
 
     r = client.get("/recurring", params={"account_id": str(sample_account_id)})
     assert r.status_code == 200
@@ -58,7 +58,7 @@ def test_list_recurring_account_filter(client, sample_account_id, upload_dir):
 
 
 def test_list_recurring_min_occurrences_filter(client, sample_account_id, upload_dir):
-    _ingest(client, sample_account_id, _RECURRING_CSV, upload_dir)
+    _ingest(client, sample_account_id, _RECURRING_CSV)
 
     r = client.get(
         "/recurring",

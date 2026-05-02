@@ -118,6 +118,13 @@ export function listCategories(): Promise<Category[]> {
   return request<Category[]>('/categories')
 }
 
+export type SupportingTransaction = {
+  id: string
+  transaction_date: string
+  amount: string
+  description: string
+}
+
 export type RecurringCharge = {
   merchant: string
   typical_amount: string
@@ -127,6 +134,7 @@ export type RecurringCharge = {
   monthly_dates: string[]
   category_id: string | null
   cadence: string
+  supporting_transactions: SupportingTransaction[]
 }
 
 export function listRecurring(params?: {
