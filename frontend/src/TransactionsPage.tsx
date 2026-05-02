@@ -26,12 +26,14 @@ function TransactionRow({
   categoryError,
   onRetryCategories,
   onUpdated,
+  onRuleCreated,
 }: {
   tx: Transaction
   categories: Category[]
   categoryError: string | null
   onRetryCategories: () => void
   onUpdated: (updated: Transaction) => void
+  onRuleCreated: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editor, setEditor] = useState<EditorState>({ phase: 'category' })
@@ -106,6 +108,9 @@ function TransactionRow({
       setSuccess('Rule created successfully.')
       setEditor({ phase: 'done' })
       setExpanded(false)
+      if (retroactive) {
+        onRuleCreated()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create rule failed')
     } finally {
@@ -117,6 +122,13 @@ function TransactionRow({
     <>
       <tr
         onClick={handleRowClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleRowClick()
+          }
+        }}
+        tabIndex={0}
         style={{ cursor: 'pointer' }}
         aria-expanded={expanded}
       >
@@ -176,8 +188,9 @@ function TransactionRow({
               <div>
                 <p style={{ marginBottom: '0.75rem', fontWeight: 600 }}>Propose a rule?</p>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                  <label>Pattern:</label>
+                  <label htmlFor={`pattern-${tx.id}`}>Pattern:</label>
                   <input
+                    id={`pattern-${tx.id}`}
                     value={pattern}
                     onChange={(e) => { setPattern(e.target.value); setPreview(null) }}
                     style={{ flex: '1', minWidth: '200px' }}
@@ -372,6 +385,7 @@ export default function TransactionsPage() {
                 categoryError={categoryError}
                 onRetryCategories={loadCategories}
                 onUpdated={handleUpdated}
+                onRuleCreated={() => void fetchTransactions(uncategorizedOnly)}
               />
             ))}
           </tbody>
