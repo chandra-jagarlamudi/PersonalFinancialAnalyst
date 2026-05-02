@@ -118,10 +118,20 @@ export default function BudgetPage() {
     setCreating(true)
     setCreateError(null)
     try {
-      await createCategory({ slug: newSlug.trim(), name: newName.trim() })
+      const slug = newSlug.trim()
+      const name = newName.trim()
+      await createCategory({ slug, name })
+      const categories = await listCategories()
+      setCategories(categories)
+      setAmountMap((prev) => {
+        const createdCategory = categories.find((category) => category.slug === slug)
+        if (!createdCategory || createdCategory.id in prev) {
+          return prev
+        }
+        return { ...prev, [createdCategory.id]: '' }
+      })
       setNewSlug('')
       setNewName('')
-      await loadData(yearMonth)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create category')
     } finally {
