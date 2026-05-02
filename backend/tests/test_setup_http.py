@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -96,3 +98,44 @@ def test_duplicate_account_alias_conflict(client, clean_db):
 
     assert first.status_code == 200
     assert second.status_code == 409
+
+
+def test_duplicate_institution_conflict(client):
+    first = client.post("/institutions", json={"name": "Local Bank"})
+    second = client.post("/institutions", json={"name": "Local Bank"})
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+
+
+def test_duplicate_account_within_institution_conflict(client):
+    institution = client.post("/institutions", json={"name": "Local Bank"}).json()
+
+    first = client.post(
+        "/accounts",
+        json={
+            "institution_id": institution["id"],
+            "name": "Checking",
+            "currency": "USD",
+        },
+    )
+    second = client.post(
+        "/accounts",
+        json={
+            "institution_id": institution["id"],
+            "name": "Checking",
+            "currency": "USD",
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+
+
+def test_update_unknown_category_returns_404(client):
+    response = client.put(
+        f"/categories/{uuid.uuid4()}",
+        json={"slug": "missing", "name": "Missing"},
+    )
+
+    assert response.status_code == 404

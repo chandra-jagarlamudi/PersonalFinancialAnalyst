@@ -13,6 +13,8 @@ from pfa.setup_service import (
     create_account,
     create_account_alias,
     create_institution,
+    get_account,
+    get_account_alias,
     list_account_aliases,
     list_accounts,
     list_institutions,
@@ -107,12 +109,11 @@ def post_account(body: AccountBody):
     with connect() as conn:
         try:
             account_id = create_account(conn, body.institution_id, body.name, body.currency)
-            rows = list_accounts(conn)
+            row = get_account(conn, account_id)
         except SetupServiceError as exc:
             raise _setup_error(exc) from exc
-    match = next((row for row in rows if row["id"] == account_id), None)
-    assert match is not None
-    return AccountOut(**match)
+    assert row is not None
+    return AccountOut(**row)
 
 
 @router.put("/accounts/{account_id}", status_code=204)
@@ -142,9 +143,8 @@ def post_account_alias(body: AccountAliasBody):
     with connect() as conn:
         try:
             alias_id = create_account_alias(conn, body.account_id, body.alias)
-            rows = list_account_aliases(conn)
+            row = get_account_alias(conn, alias_id)
         except SetupServiceError as exc:
             raise _setup_error(exc) from exc
-    match = next((row for row in rows if row["id"] == alias_id), None)
-    assert match is not None
-    return AccountAliasOut(**match)
+    assert row is not None
+    return AccountAliasOut(**row)

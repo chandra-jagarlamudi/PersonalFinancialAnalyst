@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS institutions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_institutions_name_unique
+  ON institutions(name);
+
 CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
@@ -27,6 +30,9 @@ CREATE TABLE IF NOT EXISTS accounts (
   currency TEXT NOT NULL DEFAULT 'USD',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_institution_name_unique
+  ON accounts(institution_id, name);
 
 CREATE TABLE IF NOT EXISTS account_aliases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

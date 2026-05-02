@@ -32,7 +32,7 @@ def _svc_err(exc: BudgetServiceError) -> HTTPException:
     msg = str(exc)
     if "already exists" in msg:
         return HTTPException(status_code=409, detail=msg)
-    if "unknown category" in msg:
+    if "unknown category" in msg or "category not found" in msg:
         return HTTPException(status_code=404, detail=msg)
     return HTTPException(status_code=422, detail=msg)
 
