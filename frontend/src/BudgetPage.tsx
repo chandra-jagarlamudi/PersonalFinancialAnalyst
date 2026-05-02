@@ -221,13 +221,17 @@ export default function BudgetPage() {
           <details className="budget-add-category">
             <summary>Add new category</summary>
             <form className="budget-create-form" onSubmit={(e) => void handleCreateCategory(e)}>
+              <label htmlFor="new-category-slug">Slug</label>
               <input
+                id="new-category-slug"
                 placeholder="slug (e.g. rent)"
                 value={newSlug}
                 onChange={(e) => setNewSlug(e.target.value)}
                 required
               />
+              <label htmlFor="new-category-name">Name</label>
               <input
+                id="new-category-name"
                 placeholder="Name (e.g. Rent)"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
