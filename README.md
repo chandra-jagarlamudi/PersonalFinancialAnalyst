@@ -29,8 +29,9 @@ The repo is ahead of the old README in a few areas. Today it contains:
 | Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
 | Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
 | Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
-| Frontend UI | Not yet implemented in this repo | The PRD describes the intended Vite + React client, but the current codebase is backend- and infra-focused. |
+| Frontend UI | Slice 1 app shell | Vite + React + TypeScript login form, session-aware shell, and protected API smoke checks. Full feature pages (upload, charts, budgeting, chat) remain in the PRD. |
 | Agent/chat workflows | Implemented | Embedded MCP-shaped tools + streaming chat (slice 10). |
+| PDF statement ingestion | Stub | Parser scaffold at `pdf_cc.py`; auto-ingest endpoint returns 501 until the institution-specific parser ships. |
 
 ## Product direction
 
@@ -229,6 +230,10 @@ This is a good example of the project's philosophy: recurring-spend detection is
 | `POST` | `/auth/logout` | Revoke session and clear cookie. |
 | `GET` | `/auth/session` | Return current session state. |
 | `GET` | `/health` | Liveness endpoint for the API service. |
+| `POST` | `/institutions` | Create an institution. |
+| `GET` | `/institutions` | List institutions. |
+| `POST` | `/accounts` | Create an account (requires existing institution). |
+| `GET` | `/accounts` | List accounts. |
 | `POST` | `/ingest/csv` | Upload and ingest a CSV statement for an existing account. |
 | `DELETE` | `/statements/{statement_id}` | Purge a statement record and attempt to remove the stored file. |
 | `POST` | `/categories` | Create a category. |
@@ -399,12 +404,12 @@ This does not make the project production-ready by itself. If you later expose i
 
 The implemented backend is the foundation for a broader product. The PRD calls out several next layers:
 
-| Planned area | Summary |
-|---|---|
-| Authentication and app shell | Implemented as the first slice; future work deepens the shell into real workflows. |
-| Async jobs and job status | Durable ingestion jobs with step-level progress. |
-| Frontend application | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
-| PDF ingestion | Targeted support for selected card statement formats. |
+| Planned area | Status | Summary |
+|---|---|---|
+| Authentication and app shell | Implemented | Login, session management, and protected-route enforcement. |
+| Async jobs and job status | Implemented | Durable ingestion jobs with step-level progress, background processing, and retry support. |
+| Frontend application | Partial | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
+| PDF ingestion | Stub | Parser scaffold with confidence gate exists at `backend/pfa/pdf_cc.py`. The actual auto-ingest path returns 501 until the institution-specific parser ships. |
 | Agent and tool layer | Implemented | MCP-shaped tools and streaming chat are live. |
 | Observability | Implemented | LangSmith tracing wired for agent and tool execution. |
 | More analytics | Implemented | Row and series outlier detection API is live. |
