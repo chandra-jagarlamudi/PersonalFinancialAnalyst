@@ -278,6 +278,10 @@ code {
   color: #86efac;
 }
 
+.budget-remaining-projected-over {
+  color: #fde68a;
+}
+
 .budget-remaining-over {
   color: #fca5a5;
 }

@@ -275,14 +275,25 @@ export default function BudgetPage() {
                 </thead>
                 <tbody>
                   {statusRows.map((row) => {
-                    const isOver = parseFloat(row.remaining_mtd) < 0
+                    const remaining = parseFloat(row.remaining_mtd)
+                    const projected = parseFloat(row.projected_spend)
+                    const budgeted = parseFloat(row.budget_amount)
+                    const isOver = remaining < 0
+                    const isProjectedOver = !isOver && projected > budgeted
+                    const remainingClass = isOver
+                      ? 'budget-remaining-over'
+                      : isProjectedOver
+                        ? 'budget-remaining-projected-over'
+                        : 'budget-remaining-ok'
                     return (
                       <tr key={row.category_id}>
                         <td>{row.name}</td>
                         <td>{row.budget_amount}</td>
                         <td>{row.spent_mtd}</td>
-                        <td>{row.projected_spend}</td>
-                        <td className={isOver ? 'budget-remaining-over' : 'budget-remaining-ok'}>
+                        <td className={isProjectedOver ? 'budget-remaining-projected-over' : ''}>
+                          {row.projected_spend}
+                        </td>
+                        <td className={remainingClass}>
                           {row.remaining_mtd}
                         </td>
                       </tr>
