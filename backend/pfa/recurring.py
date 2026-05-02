@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 
@@ -14,6 +14,15 @@ class TxRow:
     amount: Decimal
     description_normalized: str
     category_id: str | None
+    description_raw: str = ""
+
+
+@dataclass
+class SupportingTx:
+    id: str
+    transaction_date: datetime.date
+    amount: Decimal
+    description: str
 
 
 @dataclass
@@ -25,6 +34,8 @@ class RecurringCandidate:
     last_seen: datetime.date
     monthly_dates: list[datetime.date]
     category_id: str | None
+    supporting_transactions: list[SupportingTx] = field(default_factory=list)
+    cadence: str = "monthly"
 
 
 def _decimal_median(values: list[Decimal]) -> Decimal:
@@ -76,6 +87,15 @@ def detect_recurring(transactions: list[TxRow], min_occurrences: int = 3) -> lis
                 last_seen=sorted_txs[-1].transaction_date,
                 monthly_dates=[t.transaction_date for t in sorted_txs],
                 category_id=sorted_txs[-1].category_id,
+                supporting_transactions=[
+                    SupportingTx(
+                        id=t.id,
+                        transaction_date=t.transaction_date,
+                        amount=t.amount,
+                        description=t.description_raw,
+                    )
+                    for t in sorted_txs
+                ],
             )
         )
 

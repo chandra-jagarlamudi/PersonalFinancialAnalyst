@@ -16,6 +16,13 @@ from pfa.recurring import TxRow, detect_recurring
 router = APIRouter(prefix="/recurring", tags=["recurring"])
 
 
+class SupportingTxResponse(BaseModel):
+    id: str
+    transaction_date: datetime.date
+    amount: Decimal
+    description: str
+
+
 class RecurringResponse(BaseModel):
     merchant: str
     typical_amount: Decimal
@@ -24,6 +31,8 @@ class RecurringResponse(BaseModel):
     last_seen: datetime.date
     monthly_dates: list[datetime.date]
     category_id: UUID | None
+    cadence: str
+    supporting_transactions: list[SupportingTxResponse]
 
 
 @router.get("", response_model=list[RecurringResponse])
@@ -42,7 +51,8 @@ def list_recurring(
         if account_id is not None:
             rows = conn.execute(
                 """
-                SELECT id, transaction_date, amount, description_normalized, category_id
+                SELECT id, transaction_date, amount, description_normalized, category_id,
+                       description_raw
                 FROM transactions
                 WHERE account_id = %s AND amount < 0
                 ORDER BY transaction_date
@@ -52,7 +62,8 @@ def list_recurring(
         else:
             rows = conn.execute(
                 """
-                SELECT id, transaction_date, amount, description_normalized, category_id
+                SELECT id, transaction_date, amount, description_normalized, category_id,
+                       description_raw
                 FROM transactions
                 WHERE amount < 0
                 ORDER BY transaction_date
@@ -66,6 +77,7 @@ def list_recurring(
             amount=r[2],
             description_normalized=r[3],
             category_id=str(r[4]) if r[4] is not None else None,
+            description_raw=r[5],
         )
         for r in rows
     ]

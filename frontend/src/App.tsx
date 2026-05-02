@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
 import BudgetPage from './BudgetPage'
+import { RecurringPage } from './RecurringPage'
 import StatementsPage from './StatementsPage'
 import TransactionsPage from './TransactionsPage'
 import './App.css'
@@ -169,6 +170,7 @@ function Shell({
           <Link to="/statements">Statements</Link>
           <Link to="/transactions">Transactions</Link>
           <Link to="/budgets">Budgets</Link>
+          <Link to="/recurring">Recurring</Link>
         </nav>
         <Routes>
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
@@ -177,6 +179,7 @@ function Shell({
           <Route path="/statements/:id" element={<Navigate to="/statements" replace />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/budgets" element={<BudgetPage />} />
+          <Route path="/recurring" element={<RecurringPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
