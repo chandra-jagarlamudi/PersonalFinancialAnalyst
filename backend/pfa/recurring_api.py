@@ -24,6 +24,7 @@ class RecurringResponse(BaseModel):
     last_seen: datetime.date
     monthly_dates: list[datetime.date]
     category_id: UUID | None
+    cadence: str
 
 
 @router.get("", response_model=list[RecurringResponse])

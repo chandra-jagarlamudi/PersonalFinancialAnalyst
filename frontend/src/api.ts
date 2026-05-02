@@ -126,6 +126,7 @@ export type RecurringCharge = {
   last_seen: string
   monthly_dates: string[]
   category_id: string | null
+  cadence: string
 }
 
 export function listRecurring(params?: {

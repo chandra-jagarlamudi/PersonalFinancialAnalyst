@@ -25,6 +25,7 @@ class RecurringCandidate:
     last_seen: datetime.date
     monthly_dates: list[datetime.date]
     category_id: str | None
+    cadence: str = "monthly"
 
 
 def _decimal_median(values: list[Decimal]) -> Decimal:

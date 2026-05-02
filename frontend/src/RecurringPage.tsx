@@ -7,7 +7,7 @@ type State =
   | { status: 'error'; message: string }
 
 function formatAmount(amount: string): string {
-  return `$${Math.abs(parseFloat(amount)).toFixed(2)}/mo`
+  return `$${Math.abs(parseFloat(amount)).toFixed(2)}`
 }
 
 function formatDateRange(first: string, last: string): string {
@@ -24,9 +24,13 @@ function ChargeRow({ charge }: { charge: RecurringCharge }) {
           <strong>{charge.merchant}</strong>
         </div>
         <div className="recurring-amount">{formatAmount(charge.typical_amount)}</div>
+        <div className="recurring-cadence">
+          <span className="metric-label">Cadence</span>
+          {charge.cadence}
+        </div>
         <div className="recurring-occurrences">
           <span className="metric-label">Occurrences</span>
-          {charge.occurrences} months
+          {charge.occurrences} {charge.cadence.replace(/ly$/, 's')}
         </div>
         <div className="recurring-range">
           <span className="metric-label">Date range</span>
