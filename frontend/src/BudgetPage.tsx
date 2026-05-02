@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   createCategory,
@@ -38,7 +38,11 @@ export default function BudgetPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
+  const loadVersionRef = useRef(0)
+
   const loadData = useCallback(async (ym: string) => {
+    loadVersionRef.current += 1
+    const version = loadVersionRef.current
     setLoading(true)
     setError(null)
     setSaveMsg(null)
@@ -48,6 +52,7 @@ export default function BudgetPage() {
         listBudgets(ym),
         getBudgetStatus(ym),
       ])
+      if (version !== loadVersionRef.current) return
       setCategories(cats)
       const map: Record<string, string> = {}
       for (const cat of cats) {
@@ -59,9 +64,12 @@ export default function BudgetPage() {
       setAmountMap(map)
       setStatusRows(status)
     } catch (err) {
+      if (version !== loadVersionRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load budget data')
     } finally {
-      setLoading(false)
+      if (version === loadVersionRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -75,7 +83,13 @@ export default function BudgetPage() {
     setError(null)
     try {
       const items = Object.entries(amountMap)
-        .filter(([, v]) => v !== '' && parseFloat(v) > 0)
+        .filter(([, v]) => {
+          if (v.trim() === '') {
+            return false
+          }
+          const parsed = Number(v)
+          return !Number.isNaN(parsed) && parsed >= 0
+        })
         .map(([category_id, amount]) => ({ category_id, amount }))
       await putBudgets(yearMonth, items)
       setSaveMsg('Budgets saved.')
@@ -112,10 +126,20 @@ export default function BudgetPage() {
     setCreating(true)
     setCreateError(null)
     try {
-      await createCategory({ slug: newSlug.trim(), name: newName.trim() })
+      const slug = newSlug.trim()
+      const name = newName.trim()
+      await createCategory({ slug, name })
+      const categories = await listCategories()
+      setCategories(categories)
+      setAmountMap((prev) => {
+        const createdCategory = categories.find((category) => category.slug === slug)
+        if (!createdCategory || createdCategory.id in prev) {
+          return prev
+        }
+        return { ...prev, [createdCategory.id]: '' }
+      })
       setNewSlug('')
       setNewName('')
-      await loadData(yearMonth)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create category')
     } finally {
@@ -152,13 +176,17 @@ export default function BudgetPage() {
         <div>
           <p className="budget-empty-msg">No categories yet. Create one below.</p>
           <form className="budget-create-form" onSubmit={(e) => void handleCreateCategory(e)}>
+            <label htmlFor="new-category-slug-empty">Slug</label>
             <input
+              id="new-category-slug-empty"
               placeholder="slug (e.g. groceries)"
               value={newSlug}
               onChange={(e) => setNewSlug(e.target.value)}
               required
             />
+            <label htmlFor="new-category-name-empty">Name</label>
             <input
+              id="new-category-name-empty"
               placeholder="Name (e.g. Groceries)"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -202,6 +230,7 @@ export default function BudgetPage() {
                       type="number"
                       step="0.01"
                       min="0"
+                      aria-label={`Budgeted amount for ${cat.name}`}
                       value={amountMap[cat.id] ?? '0'}
                       onChange={(e) =>
                         setAmountMap((prev) => ({ ...prev, [cat.id]: e.target.value }))
@@ -216,13 +245,17 @@ export default function BudgetPage() {
           <details className="budget-add-category">
             <summary>Add new category</summary>
             <form className="budget-create-form" onSubmit={(e) => void handleCreateCategory(e)}>
+              <label htmlFor="new-category-slug-add">Slug</label>
               <input
+                id="new-category-slug-add"
                 placeholder="slug (e.g. rent)"
                 value={newSlug}
                 onChange={(e) => setNewSlug(e.target.value)}
                 required
               />
+              <label htmlFor="new-category-name-add">Name</label>
               <input
+                id="new-category-name-add"
                 placeholder="Name (e.g. Rent)"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -235,9 +268,13 @@ export default function BudgetPage() {
             </form>
           </details>
 
-          {statusRows.length > 0 && (
-            <div className="budget-status-section">
-              <h3>Budget vs Actual</h3>
+          <div className="budget-status-section">
+            <h3>Budget vs Actual</h3>
+            {statusRows.length === 0 ? (
+              <p className="budget-status-empty">
+                No budget data yet for this month. Save your budgets above to see actuals.
+              </p>
+            ) : (
               <table className="budget-table">
                 <thead>
                   <tr>
@@ -250,14 +287,25 @@ export default function BudgetPage() {
                 </thead>
                 <tbody>
                   {statusRows.map((row) => {
-                    const isOver = parseFloat(row.remaining_mtd) < 0
+                    const remaining = parseFloat(row.remaining_mtd)
+                    const projected = parseFloat(row.projected_spend)
+                    const budgeted = parseFloat(row.budget_amount)
+                    const isOver = remaining < 0
+                    const isProjectedOver = !isOver && projected > budgeted
+                    const remainingClass = isOver
+                      ? 'budget-remaining-over'
+                      : isProjectedOver
+                        ? 'budget-remaining-projected-over'
+                        : 'budget-remaining-ok'
                     return (
                       <tr key={row.category_id}>
                         <td>{row.name}</td>
                         <td>{row.budget_amount}</td>
                         <td>{row.spent_mtd}</td>
-                        <td>{row.projected_spend}</td>
-                        <td className={isOver ? 'budget-remaining-over' : 'budget-remaining-ok'}>
+                        <td className={isProjectedOver ? 'budget-remaining-projected-over' : ''}>
+                          {row.projected_spend}
+                        </td>
+                        <td className={remainingClass}>
                           {row.remaining_mtd}
                         </td>
                       </tr>
@@ -265,8 +313,8 @@ export default function BudgetPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </section>

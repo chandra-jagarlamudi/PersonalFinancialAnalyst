@@ -278,6 +278,10 @@ code {
   color: #86efac;
 }
 
+.budget-remaining-projected-over {
+  color: #fde68a;
+}
+
 .budget-remaining-over {
   color: #fca5a5;
 }
@@ -322,4 +326,10 @@ code {
 .confirm-text {
   font-size: 0.8rem;
   color: #fbbf24;
+}
+
+.budget-status-empty {
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 0.5rem;
 }
