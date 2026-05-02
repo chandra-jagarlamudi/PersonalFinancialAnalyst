@@ -16,6 +16,13 @@ def clear_langchain_tracing_env(monkeypatch):
     monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def auth_env(monkeypatch):
+    monkeypatch.setenv("PFA_AUTH_USERNAME", "admin")
+    monkeypatch.setenv("PFA_AUTH_PASSWORD", "test-password")
+    monkeypatch.setenv("PFA_SESSION_COOKIE_SECURE", "false")
+
+
 def pytest_collection_modifyitems(config, items):
     if os.environ.get("DATABASE_URL"):
         return
@@ -56,7 +63,7 @@ def db_conn(database_url):
 def clean_db(db_conn):
     with db_conn.cursor() as cur:
         cur.execute(
-            "TRUNCATE budgets, transactions, statements, accounts, institutions, categories RESTART IDENTITY CASCADE"
+            "TRUNCATE auth_sessions, budgets, transactions, statements, accounts, institutions, categories RESTART IDENTITY CASCADE"
         )
     db_conn.commit()
     yield db_conn
@@ -91,11 +98,26 @@ def upload_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client(database_url, monkeypatch):
+def client(database_url, monkeypatch, clean_db):
     monkeypatch.setenv("DATABASE_URL", database_url)
     from fastapi.testclient import TestClient
     from pfa.main import app
 
     # Context manager runs lifespan startup (schema DDL) before requests.
+    with TestClient(app) as test_client:
+        login = test_client.post(
+            "/auth/login",
+            json={"username": "admin", "password": "test-password"},
+        )
+        assert login.status_code == 200
+        yield test_client
+
+
+@pytest.fixture
+def anon_client(database_url, monkeypatch, clean_db):
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    from fastapi.testclient import TestClient
+    from pfa.main import app
+
     with TestClient(app) as test_client:
         yield test_client
