@@ -3,10 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import StatementsPage from './StatementsPage'
 
-// StatementsPage calls listStatements() then listAccounts() in Promise.all.
-// fetch mock calls are consumed in the order the underlying fetch() calls fire,
-// which is: GET /api/statements first, GET /api/accounts second.
-
+// Fetch mock order: GET /api/statements, GET /api/accounts, GET /api/institutions
+const INSTITUTION = { id: 'inst-1', name: 'First Bank' }
 const ACCOUNT = { id: 'acct-1', institution_id: 'inst-1', name: 'Checking', currency: 'USD' }
 const STATEMENT = {
   id: 'stmt-1',
@@ -49,20 +47,22 @@ describe('StatementsPage', () => {
     mockFetch([
       { body: [] }, // listStatements
       { body: [] }, // listAccounts
+      { body: [] }, // listInstitutions
     ])
     render(<StatementsPage />)
     expect(await screen.findByText(/no statements uploaded yet/i)).toBeInTheDocument()
   })
 
-  it('renders the statement list with account name', async () => {
+  it('renders the statement list with institution and account name', async () => {
     mockFetch([
-      { body: [STATEMENT] }, // listStatements
-      { body: [ACCOUNT] },   // listAccounts
+      { body: [STATEMENT] },    // listStatements
+      { body: [ACCOUNT] },      // listAccounts
+      { body: [INSTITUTION] },  // listInstitutions
     ])
     render(<StatementsPage />)
 
-    // Account name appears in the Account column.
-    expect(await screen.findByText('Checking')).toBeInTheDocument()
+    // Full "Institution — Account" label is shown.
+    expect(await screen.findByText('First Bank — Checking')).toBeInTheDocument()
     // Filename appears.
     expect(screen.getByText('jan.csv')).toBeInTheDocument()
     // Inserted / skipped counts.
@@ -72,10 +72,21 @@ describe('StatementsPage', () => {
     expect(screen.getByRole('button', { name: /purge/i })).toBeInTheDocument()
   })
 
+  it('shows only account name when institution is not found', async () => {
+    mockFetch([
+      { body: [STATEMENT] },
+      { body: [ACCOUNT] },
+      { body: [] }, // no institutions
+    ])
+    render(<StatementsPage />)
+    expect(await screen.findByText('Checking')).toBeInTheDocument()
+  })
+
   it('falls back to account_id when account is not in the accounts list', async () => {
     mockFetch([
-      { body: [STATEMENT] }, // listStatements
-      { body: [] },          // listAccounts — empty, so name unknown
+      { body: [STATEMENT] },
+      { body: [] }, // listAccounts — empty
+      { body: [] }, // listInstitutions
     ])
     render(<StatementsPage />)
     expect(await screen.findByText('acct-1')).toBeInTheDocument()
@@ -85,6 +96,7 @@ describe('StatementsPage', () => {
     mockFetch([
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
     ])
     render(<StatementsPage />)
 
@@ -99,6 +111,7 @@ describe('StatementsPage', () => {
     mockFetch([
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
     ])
     render(<StatementsPage />)
 
@@ -116,8 +129,9 @@ describe('StatementsPage', () => {
 
   it('shows success banner and removes row after successful purge', async () => {
     mockFetch([
-      { body: [STATEMENT] },    // listStatements
-      { body: [ACCOUNT] },      // listAccounts
+      { body: [STATEMENT] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
       { status: 204, body: undefined }, // DELETE
     ])
     render(<StatementsPage />)
@@ -131,8 +145,9 @@ describe('StatementsPage', () => {
 
   it('shows error banner when purge fails', async () => {
     mockFetch([
-      { body: [STATEMENT] },    // listStatements
-      { body: [ACCOUNT] },      // listAccounts
+      { body: [STATEMENT] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
       { ok: false, status: 500, body: { detail: 'internal server error' } }, // DELETE
     ])
     render(<StatementsPage />)
@@ -155,3 +170,4 @@ describe('StatementsPage', () => {
     expect(screen.getByText(/network failure/i).closest('p')).toHaveClass('error-banner')
   })
 })
+

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listAccounts, listStatements, purgeStatement, type Account, type Statement } from './api'
+import { listAccounts, listInstitutions, listStatements, purgeStatement, type Account, type Institution, type Statement } from './api'
 
 type Banner = { type: 'success' | 'error'; message: string }
 
@@ -16,6 +16,7 @@ function formatDate(iso: string): string {
 export default function StatementsPage() {
   const [statements, setStatements] = useState<Statement[]>([])
   const [accounts, setAccounts] = useState<Map<string, Account>>(new Map())
+  const [institutions, setInstitutions] = useState<Map<string, Institution>>(new Map())
   const [loading, setLoading] = useState(true)
   const [banner, setBanner] = useState<Banner | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -28,10 +29,12 @@ export default function StatementsPage() {
       setStatements(data)
 
       try {
-        const acctList = await listAccounts()
+        const [acctList, instList] = await Promise.all([listAccounts(), listInstitutions()])
         setAccounts(new Map(acctList.map(a => [a.id, a])))
+        setInstitutions(new Map(instList.map(i => [i.id, i])))
       } catch {
         setAccounts(new Map())
+        setInstitutions(new Map())
       }
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load statements' })
@@ -87,7 +90,14 @@ export default function StatementsPage() {
           <tbody>
             {statements.map(s => (
               <tr key={s.id}>
-                <td>{accounts.get(s.account_id)?.name ?? s.account_id}</td>
+                <td>
+                  {(() => {
+                    const acct = accounts.get(s.account_id)
+                    if (!acct) return s.account_id
+                    const inst = institutions.get(acct.institution_id)
+                    return inst ? `${inst.name} — ${acct.name}` : acct.name
+                  })()}
+                </td>
                 <td>{s.filename}</td>
                 <td>{formatDate(s.created_at)}</td>
                 <td>{formatBytes(s.byte_size)}</td>

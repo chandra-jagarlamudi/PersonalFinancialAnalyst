@@ -20,6 +20,11 @@ export type Statement = {
   created_at: string
 }
 
+export type Institution = {
+  id: string
+  name: string
+}
+
 export type Account = {
   id: string
   institution_id: string
@@ -96,4 +101,8 @@ export function purgeStatement(id: string): Promise<void> {
 
 export function listAccounts(): Promise<Account[]> {
   return request<Account[]>('/accounts')
+}
+
+export function listInstitutions(): Promise<Institution[]> {
+  return request<Institution[]>('/institutions')
 }
