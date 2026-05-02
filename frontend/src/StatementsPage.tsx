@@ -75,7 +75,7 @@ export default function StatementsPage() {
               <th>Size</th>
               <th>Inserted</th>
               <th>Skipped</th>
-              <th></th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
