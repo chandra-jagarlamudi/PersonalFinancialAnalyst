@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+from asyncio import create_task, to_thread
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from pfa.anomalies_api import router as anomalies_router
@@ -27,7 +29,10 @@ from pfa.ingest import (
     statement_exists_by_hash,
     update_statement_counts,
 )
+from pfa.ingest_jobs import process_csv_job, recoverable_job_ids
+from pfa.job_api import router as job_router
 from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
+from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -57,16 +62,25 @@ async def lifespan(app: FastAPI):
     if url:
         with connect() as conn:
             ensure_schema(conn)
+        for job_id in recoverable_job_ids():
+            create_task(to_thread(process_csv_job, job_id))
     yield
 
 
 app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 
+app.include_router(setup_router)
+app.include_router(job_router)
 app.include_router(budget_router)
 app.include_router(categorization_router)
 app.include_router(recurring_router)
 app.include_router(chat_router)
 app.include_router(anomalies_router)
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs", status_code=302)
 
 
 @app.get("/health")
