@@ -147,6 +147,61 @@ button:disabled {
   padding: 1.5rem;
 }
 
+.setup-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.setup-section {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.stacked-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.stacked-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.stacked-form input,
+.stacked-form select {
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #020617;
+  color: #f8fafc;
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+}
+
+.simple-list {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.1rem;
+  color: #e2e8f0;
+}
+
+.muted-inline {
+  color: #94a3b8;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));

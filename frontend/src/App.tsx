@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
+import { SetupPage } from './SetupPage'
 import './App.css'
 
 type ProtectedState =
@@ -141,10 +142,12 @@ function Shell({
   session,
   protectedState,
   onLogout,
+  onCategoryCountChange,
 }: {
   session: SessionState
   protectedState: ProtectedState
   onLogout: () => Promise<void>
+  onCategoryCountChange: (count: number) => void
 }) {
   const username = session.username ?? 'admin'
 
@@ -162,10 +165,15 @@ function Shell({
       <div className="shell-body">
         <nav className="shell-nav">
           <Link to="/">Overview</Link>
+          <Link to="/setup">Setup</Link>
           <Link to="/smoke">API smoke</Link>
         </nav>
         <Routes>
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
+          <Route
+            path="/setup"
+            element={<SetupPage onCategoryCountChange={onCategoryCountChange} />}
+          />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -250,7 +258,14 @@ function App() {
     <BrowserRouter>
       <main className="app-root">
         {isAuthenticated && session ? (
-          <Shell session={session} protectedState={protectedState} onLogout={handleLogout} />
+          <Shell
+            session={session}
+            protectedState={protectedState}
+            onLogout={handleLogout}
+            onCategoryCountChange={(count) =>
+              setProtectedState({ status: 'ready', categoryCount: count })
+            }
+          />
         ) : (
           <LoginForm onLogin={handleLogin} loading={submitting} />
         )}

@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS account_aliases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  alias TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_aliases_account_id
+  ON account_aliases(account_id);
+
 -- Slice 5: raw file storage with hash-level idempotency.
 CREATE TABLE IF NOT EXISTS statements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

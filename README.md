@@ -26,6 +26,7 @@ The repo is ahead of the old README in a few areas. Today it contains:
 | CSV statement ingestion | Implemented | Multipart upload with validation, file hashing, account scoping, and transaction dedupe. |
 | Raw statement storage | Implemented | Files are stored on disk using content-addressed paths under the configured upload directory. |
 | Statement purge | Implemented | Removes DB metadata and attempts to delete the stored file. |
+| Ledger bootstrap workflows | Implemented | Institutions, accounts, account aliases, starter categories, and category edits can now be managed through authenticated APIs and the setup UI. |
 | Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
 | Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
 | Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
@@ -34,7 +35,7 @@ The repo is ahead of the old README in a few areas. Today it contains:
 
 ## Product direction
 
-The intended product is a single-user, self-hosted finance application that runs locally by default. A user should be able to upload account statements, build a normalized ledger, manage categories and budgets, inspect recurring spending, and eventually ask an embedded AI agent questions such as why a month was expensive or which subscriptions are driving recurring costs.
+The intended product is a single-user, self-hosted finance application that runs locally by default. A user should be able to authenticate, set up institutions/accounts/categories, upload account statements, build a normalized ledger, manage budgets, inspect recurring spending, and eventually ask an embedded AI agent questions such as why a month was expensive or which subscriptions are driving recurring costs.
 
 The project is deliberately biased toward deterministic behavior:
 
@@ -321,6 +322,8 @@ npm run dev
 
 Open `http://127.0.0.1:5173` and sign in with `PFA_AUTH_USERNAME` / `PFA_AUTH_PASSWORD` from `.env`. The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`, so the browser can keep the session cookie while talking to protected backend routes.
 
+After logging in, open the **Setup** page in the shell to create institutions, accounts, account aliases, and starter categories before using ingestion or analytics workflows.
+
 ### 7. Stop the stack
 
 ```bash
@@ -347,6 +350,7 @@ The repository now includes both backend and frontend validation paths.
 | Categorization | Regex validation, priority ordering, retroactive apply, manual correction, and dry-run proposals. |
 | Recurring detection | Pure recurrence logic and API behavior. |
 | Authentication | Login, logout, session bootstrap, and protected-route enforcement. |
+| Ledger setup | Institution/account/account-alias CRUD plus starter-category bootstrap flows. |
 
 The frontend app-shell tests cover:
 
@@ -391,8 +395,9 @@ The implemented backend is the foundation for a broader product. The PRD calls o
 
 | Planned area | Summary |
 |---|---|
-| Authentication and app shell | Implemented as the first slice; future work deepens the shell into real workflows. |
+| Authentication and app shell | Implemented as the first slice; later slices deepen the shell into ingestion and analytics workflows. |
 | Async jobs and job status | Durable ingestion jobs with step-level progress. |
+| Ledger bootstrap workflows | Implemented through the authenticated setup page and protected setup APIs. |
 | Frontend application | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
 | PDF ingestion | Targeted support for selected card statement formats. |
 | Agent and tool layer | Embedded MCP-shaped tools used by a backend-run AI assistant. |

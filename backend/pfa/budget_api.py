@@ -13,12 +13,14 @@ from starlette.responses import Response
 
 from pfa.budget_service import (
     BudgetServiceError,
+    bootstrap_default_categories,
     budget_status,
     create_category,
     list_budgets,
     list_categories,
     parse_year_month,
     suggest_budget_amounts,
+    update_category,
     upsert_budgets,
 )
 from pfa.db import connect
@@ -106,6 +108,25 @@ def post_category(body: CategoryCreate):
 def get_categories():
     with connect() as conn:
         rows = list_categories(conn)
+    return [
+        CategoryOut(id=r["id"], slug=r["slug"], name=r["name"]) for r in rows
+    ]
+
+
+@router.put("/categories/{category_id}", status_code=204)
+def put_category(category_id: UUID, body: CategoryCreate):
+    with connect() as conn:
+        try:
+            update_category(conn, category_id, body.slug, body.name)
+        except BudgetServiceError as e:
+            raise _svc_err(e) from e
+    return Response(status_code=204)
+
+
+@router.post("/categories/bootstrap-defaults", response_model=list[CategoryOut])
+def post_bootstrap_default_categories():
+    with connect() as conn:
+        rows = bootstrap_default_categories(conn)
     return [
         CategoryOut(id=r["id"], slug=r["slug"], name=r["name"]) for r in rows
     ]
