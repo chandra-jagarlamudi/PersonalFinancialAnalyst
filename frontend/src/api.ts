@@ -92,11 +92,13 @@ export function listTransactions(params?: {
   account_id?: string
   uncategorized?: boolean
   limit?: number
+  offset?: number
 }): Promise<Transaction[]> {
   const search = new URLSearchParams()
   if (params?.account_id) search.set('account_id', params.account_id)
   if (params?.uncategorized) search.set('uncategorized', 'true')
   if (params?.limit != null) search.set('limit', String(params.limit))
+  if (params?.offset != null) search.set('offset', String(params.offset))
   const qs = search.toString()
   return request<Transaction[]>(`/transactions${qs ? `?${qs}` : ''}`)
 }
