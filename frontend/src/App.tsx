@@ -170,6 +170,7 @@ function Shell({
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
           <Route path="/statements" element={<StatementsPage />} />
+          <Route path="/statements/:id" element={<StatementsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
