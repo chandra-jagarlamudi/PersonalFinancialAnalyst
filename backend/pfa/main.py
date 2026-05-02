@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from pfa.anomalies_api import router as anomalies_router
 from pfa.auth import require_authenticated
 from pfa.auth_api import router as auth_router
+from pfa.dashboard_api import router as dashboard_router
 from pfa.budget_api import router as budget_router
 from pfa.chat_api import router as chat_router
 from pfa.categorization_api import router as categorization_router
@@ -33,6 +34,7 @@ from pfa.ingest import (
 from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
 from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
+from pfa.transactions_api import router as transactions_router
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_PDF_UPLOAD_BYTES = MAX_CSV_UPLOAD_BYTES
@@ -68,6 +70,8 @@ app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(setup_router, dependencies=[Depends(require_authenticated)])
+app.include_router(dashboard_router, dependencies=[Depends(require_authenticated)])
+app.include_router(transactions_router, dependencies=[Depends(require_authenticated)])
 app.include_router(budget_router, dependencies=[Depends(require_authenticated)])
 app.include_router(
     categorization_router, dependencies=[Depends(require_authenticated)]

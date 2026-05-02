@@ -42,6 +42,8 @@ describe('App', () => {
       { body: { authenticated: false, username: null } },
       { body: { authenticated: true, username: 'admin' } },
       { body: [] },
+      { body: [] },
+      { body: [] },
     ])
 
     render(<App />)
@@ -55,10 +57,9 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(
-      await screen.findByRole('heading', { name: /authenticated app shell/i }),
+      await screen.findByRole('heading', { name: /dashboard/i }),
     ).toBeInTheDocument()
-    expect(await screen.findByText(/^Reachable$/)).toBeInTheDocument()
-    expect(await screen.findByText(/^0$/)).toBeInTheDocument()
+    expect(await screen.findByText(/cashflow over time/i)).toBeInTheDocument()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -79,12 +80,15 @@ describe('App', () => {
       { body: [] },
       { body: [] },
       { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: [] },
     ])
 
     render(<App />)
 
     expect(
-      await screen.findByRole('heading', { name: /authenticated app shell/i }),
+      await screen.findByRole('heading', { name: /dashboard/i }),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('link', { name: /setup/i }))
