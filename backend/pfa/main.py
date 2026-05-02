@@ -8,10 +8,13 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from pfa.anomalies_api import router as anomalies_router
+from pfa.auth import require_authenticated
+from pfa.auth_api import router as auth_router
 from pfa.budget_api import router as budget_router
 from pfa.chat_api import router as chat_router
 from pfa.categorization_api import router as categorization_router
@@ -62,11 +65,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Personal Financial Analyst", lifespan=lifespan)
 
-app.include_router(budget_router)
-app.include_router(categorization_router)
-app.include_router(recurring_router)
-app.include_router(chat_router)
-app.include_router(anomalies_router)
+app.include_router(auth_router)
+app.include_router(budget_router, dependencies=[Depends(require_authenticated)])
+app.include_router(
+    categorization_router, dependencies=[Depends(require_authenticated)]
+)
+app.include_router(recurring_router, dependencies=[Depends(require_authenticated)])
+app.include_router(chat_router, dependencies=[Depends(require_authenticated)])
+app.include_router(anomalies_router, dependencies=[Depends(require_authenticated)])
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs", status_code=302)
 
 
 @app.get("/health")
@@ -74,7 +85,11 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/ingest/csv", response_model=IngestResponse)
+@app.post(
+    "/ingest/csv",
+    response_model=IngestResponse,
+    dependencies=[Depends(require_authenticated)],
+)
 def ingest_csv(
     account_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
@@ -137,7 +152,11 @@ def _ensure_pdf_magic(raw: bytes) -> None:
         )
 
 
-@app.post("/ingest/pdf", response_model=PdfIngestResponse)
+@app.post(
+    "/ingest/pdf",
+    response_model=PdfIngestResponse,
+    dependencies=[Depends(require_authenticated)],
+)
 def ingest_pdf(
     account_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
@@ -174,7 +193,11 @@ def ingest_pdf(
     )
 
 
-@app.delete("/statements/{statement_id}", status_code=204)
+@app.delete(
+    "/statements/{statement_id}",
+    status_code=204,
+    dependencies=[Depends(require_authenticated)],
+)
 def purge_statement_endpoint(statement_id: UUID):
     with connect() as conn:
         file_path = purge_statement(conn, statement_id)

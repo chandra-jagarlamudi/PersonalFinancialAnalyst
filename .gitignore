@@ -26,6 +26,10 @@ venv/
 env/
 .env/
 
+# Node
+node_modules/
+coverage/
+
 # Testing
 .pytest_cache/
 .coverage
@@ -47,5 +51,4 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
-
 

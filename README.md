@@ -29,7 +29,7 @@ The repo is ahead of the old README in a few areas. Today it contains:
 | Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
 | Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
 | Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
-| Frontend UI | Not yet implemented in this repo | The PRD describes the intended Vite + React client, but the current codebase is backend- and infra-focused. |
+| Frontend UI | Partially implemented | Vite + React app shell with login, session bootstrap, and a protected API smoke path is now in the repo; deeper workflows are still in progress. |
 | Agent/chat workflows | Planned | Product direction is documented in the PRD, but the runtime is not yet in this repository. |
 
 ## Product direction
@@ -54,6 +54,7 @@ At the moment the architecture is intentionally small:
 |---|---|---|
 | Local orchestration | Docker Compose | Starts the database and backend with consistent environment wiring. |
 | API service | FastAPI on Python 3.11+ | Exposes ingestion, budgeting, categorization, recurring, and health endpoints. |
+| Frontend shell | Vite + React + TypeScript | Provides login, session-aware shell UI, and protected API smoke checks during local development. |
 | Database | PostgreSQL 16 | System of record for institutions, accounts, statements, transactions, categories, budgets, and categorization rules. |
 | File storage | Local filesystem bind mount | Stores uploaded raw statement files in a durable path outside the container image. |
 | Packaging | `pyproject.toml` + setuptools | Installs the backend package and test dependencies. |
@@ -257,7 +258,7 @@ This is a good example of the project's philosophy: recurring-spend detection is
 
 ### Prerequisites
 
-You need Docker with Compose v2 for the default local workflow. For host-based backend development, use Python 3.11 or newer.
+You need Docker with Compose v2 for the default local workflow. For host-based development, use Python 3.11 or newer plus Node.js 20 or newer for the frontend shell.
 
 ### 1. Create your local environment file
 
@@ -265,7 +266,7 @@ You need Docker with Compose v2 for the default local workflow. For host-based b
 cp .env.example .env
 ```
 
-The `.env` file controls the database credentials, exposed host ports, and raw statement storage path. The defaults are set up for local-only development.
+The `.env` file controls the database credentials, exposed host ports, raw statement storage path, and the single-user app-shell login. The defaults are set up for local-only development.
 
 ### 2. Create the raw statement storage directory
 
@@ -308,7 +309,19 @@ uvicorn pfa.main:app --reload
 
 With the default `.env.example`, the backend connects to PostgreSQL through `DATABASE_URL=postgresql://pfa:pfa_dev_password_change_me@127.0.0.1:5432/pfa`.
 
-### 6. Stop the stack
+### 6. Run the frontend app shell (optional, recommended for slice 1)
+
+From another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173` and sign in with `PFA_AUTH_USERNAME` / `PFA_AUTH_PASSWORD` from `.env`. The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`, so the browser can keep the session cookie while talking to protected backend routes.
+
+### 7. Stop the stack
 
 ```bash
 docker compose down
@@ -322,7 +335,7 @@ docker compose down -v
 
 ## Testing
 
-The backend test suite combines pure unit tests with database-backed integration tests.
+The repository now includes both backend and frontend validation paths.
 
 | Test area | Coverage |
 |---|---|
@@ -333,6 +346,14 @@ The backend test suite combines pure unit tests with database-backed integration
 | Budgeting | Category creation, budget upsert/list, projections, and suggestions. |
 | Categorization | Regex validation, priority ordering, retroactive apply, manual correction, and dry-run proposals. |
 | Recurring detection | Pure recurrence logic and API behavior. |
+| Authentication | Login, logout, session bootstrap, and protected-route enforcement. |
+
+The frontend app-shell tests cover:
+
+| Test area | Coverage |
+|---|---|
+| Session bootstrap | Unauthenticated load renders the login form. |
+| Login flow | Successful login renders the authenticated shell and reaches a protected API path. |
 
 Run the backend tests with a live PostgreSQL database reachable at `DATABASE_URL`:
 
@@ -342,6 +363,14 @@ make test-backend
 ```
 
 Integration tests are skipped automatically when `DATABASE_URL` is not set.
+
+Run the frontend tests, build, and lint from `frontend/`:
+
+```bash
+npm run test
+npm run build
+npm run lint
+```
 
 ## Security and privacy posture
 
@@ -362,9 +391,9 @@ The implemented backend is the foundation for a broader product. The PRD calls o
 
 | Planned area | Summary |
 |---|---|
-| Authentication and app shell | Single-user login and the first real UI shell. |
+| Authentication and app shell | Implemented as the first slice; future work deepens the shell into real workflows. |
 | Async jobs and job status | Durable ingestion jobs with step-level progress. |
-| Frontend application | Vite + React + TypeScript client for upload, charts, budgeting, and chat. |
+| Frontend application | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
 | PDF ingestion | Targeted support for selected card statement formats. |
 | Agent and tool layer | Embedded MCP-shaped tools used by a backend-run AI assistant. |
 | Observability | LangSmith tracing for agent and tool execution. |
