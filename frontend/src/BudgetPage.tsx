@@ -168,17 +168,17 @@ export default function BudgetPage() {
         <div>
           <p className="budget-empty-msg">No categories yet. Create one below.</p>
           <form className="budget-create-form" onSubmit={(e) => void handleCreateCategory(e)}>
-            <label htmlFor="new-category-slug">Slug</label>
+            <label htmlFor="new-category-slug-empty">Slug</label>
             <input
-              id="new-category-slug"
+              id="new-category-slug-empty"
               placeholder="slug (e.g. groceries)"
               value={newSlug}
               onChange={(e) => setNewSlug(e.target.value)}
               required
             />
-            <label htmlFor="new-category-name">Name</label>
+            <label htmlFor="new-category-name-empty">Name</label>
             <input
-              id="new-category-name"
+              id="new-category-name-empty"
               placeholder="Name (e.g. Groceries)"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -237,17 +237,17 @@ export default function BudgetPage() {
           <details className="budget-add-category">
             <summary>Add new category</summary>
             <form className="budget-create-form" onSubmit={(e) => void handleCreateCategory(e)}>
-              <label htmlFor="new-category-slug">Slug</label>
+              <label htmlFor="new-category-slug-add">Slug</label>
               <input
-                id="new-category-slug"
+                id="new-category-slug-add"
                 placeholder="slug (e.g. rent)"
                 value={newSlug}
                 onChange={(e) => setNewSlug(e.target.value)}
                 required
               />
-              <label htmlFor="new-category-name">Name</label>
+              <label htmlFor="new-category-name-add">Name</label>
               <input
-                id="new-category-name"
+                id="new-category-name-add"
                 placeholder="Name (e.g. Rent)"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
