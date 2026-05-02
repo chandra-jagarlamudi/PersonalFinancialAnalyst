@@ -7,7 +7,7 @@ type State =
   | { status: 'error'; message: string }
 
 function formatAmount(amount: string): string {
-  return `$${parseFloat(amount).toFixed(2)}/mo`
+  return `$${Math.abs(parseFloat(amount)).toFixed(2)}/mo`
 }
 
 function formatDateRange(first: string, last: string): string {
