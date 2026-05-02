@@ -42,7 +42,7 @@ export default function StatementsPage() {
     try {
       await purgeStatement(id)
       setStatements(prev => prev.filter(s => s.id !== id))
-      setBanner({ type: 'success', message: 'Statement removed from the app. Associated file cleanup may complete separately.' })
+      setBanner({ type: 'success', message: 'Statement removed from the app. This operation does not confirm that any underlying uploaded file bytes were deleted.' })
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Purge failed' })
     } finally {
