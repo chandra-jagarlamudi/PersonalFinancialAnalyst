@@ -14,6 +14,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from pfa.anomalies_api import router as anomalies_router
+from pfa.statements_api import router as statements_router
 from pfa.auth import require_authenticated
 from pfa.auth_api import router as auth_router
 from pfa.budget_api import router as budget_router
@@ -81,6 +82,7 @@ app.include_router(
 app.include_router(recurring_router, dependencies=[Depends(require_authenticated)])
 app.include_router(chat_router, dependencies=[Depends(require_authenticated)])
 app.include_router(anomalies_router, dependencies=[Depends(require_authenticated)])
+app.include_router(statements_router, dependencies=[Depends(require_authenticated)])
 
 
 @app.get("/", include_in_schema=False)
