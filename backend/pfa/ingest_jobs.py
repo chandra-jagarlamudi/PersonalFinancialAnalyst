@@ -378,8 +378,10 @@ def retry_job(job_id: UUID) -> None:
 
 
 def recoverable_job_ids() -> list[UUID]:
+    statuses = tuple(ACTIVE_STATUSES)
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id FROM ingest_jobs WHERE status IN ('pending', 'running')"
+            "SELECT id FROM ingest_jobs WHERE status = ANY(%s)",
+            (list(statuses),),
         ).fetchall()
     return [UUID(str(row[0])) for row in rows]

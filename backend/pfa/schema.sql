@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
 CREATE INDEX IF NOT EXISTS idx_ingest_jobs_status_created_at
   ON ingest_jobs(status, created_at DESC);
 
--- Idempotent column addition for DBs created before slice 5 job support.
+-- Idempotent column addition: ensures DBs provisioned before this column was
+-- added to the CREATE TABLE above receive it on next schema migration run.
 ALTER TABLE ingest_jobs
   ADD COLUMN IF NOT EXISTS statement_id UUID;
 
