@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
+import BudgetPage from './BudgetPage'
 import './App.css'
 
 type ProtectedState =
@@ -163,10 +164,12 @@ function Shell({
         <nav className="shell-nav">
           <Link to="/">Overview</Link>
           <Link to="/smoke">API smoke</Link>
+          <Link to="/budgets">Budgets</Link>
         </nav>
         <Routes>
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
+          <Route path="/budgets" element={<BudgetPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
