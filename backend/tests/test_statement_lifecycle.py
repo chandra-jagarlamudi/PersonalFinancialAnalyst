@@ -74,8 +74,12 @@ def test_purge_statement_removes_it(client, sample_account_id, upload_dir):
     assert ingest_r.status_code == 200
     sid = ingest_r.json()["statement_id"]
 
+    uploaded_files = [path for path in upload_dir.rglob("*") if path.is_file()]
+    assert uploaded_files, "expected uploaded raw bytes to be stored in upload_dir"
+
     del_r = client.delete(f"/statements/{sid}")
     assert del_r.status_code == 204
 
     r = client.get(f"/statements/{sid}")
     assert r.status_code == 404
+    assert not any(path.is_file() for path in upload_dir.rglob("*"))
