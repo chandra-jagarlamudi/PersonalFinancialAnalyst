@@ -272,8 +272,29 @@ export default function TransactionsPage() {
     void fetchTransactions(next)
   }
 
+  function isUncategorizedTransaction(tx: Transaction): boolean {
+    const candidate = tx as Transaction & {
+      category?: Category | null
+      categoryId?: string | null
+    }
+
+    return candidate.category == null && candidate.categoryId == null
+  }
+
   function handleUpdated(updated: Transaction) {
-    setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+    setTransactions((prev) => {
+      if (!uncategorizedOnly) {
+        return prev.map((t) => (t.id === updated.id ? updated : t))
+      }
+
+      return prev.flatMap((t) => {
+        if (t.id !== updated.id) {
+          return [t]
+        }
+
+        return isUncategorizedTransaction(updated) ? [updated] : []
+      })
+    })
   }
 
   return (
