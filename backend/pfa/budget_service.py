@@ -21,6 +21,18 @@ class BudgetServiceError(ValueError):
     pass
 
 
+DEFAULT_CATEGORY_ROWS: tuple[tuple[str, str], ...] = (
+    ("groceries", "Groceries"),
+    ("rent", "Rent"),
+    ("utilities", "Utilities"),
+    ("transport", "Transport"),
+    ("dining", "Dining"),
+    ("entertainment", "Entertainment"),
+    ("healthcare", "Healthcare"),
+    ("income", "Income"),
+)
+
+
 def parse_year_month(value: str) -> date:
     m = _YEAR_MONTH.fullmatch(value.strip())
     if not m:
@@ -71,12 +83,51 @@ def create_category(conn: psycopg.Connection, slug: str, name: str) -> UUID:
     return UUID(str(row[0]))
 
 
+def update_category(conn: psycopg.Connection, category_id: UUID, slug: str, name: str) -> None:
+    validate_slug(slug)
+    name = name.strip()
+    if not name:
+        raise BudgetServiceError("name is required")
+    try:
+        row = conn.execute(
+            """
+            UPDATE categories
+            SET slug = %s, name = %s
+            WHERE id = %s
+            RETURNING id
+            """,
+            (slug.strip(), name, str(category_id)),
+        ).fetchone()
+    except pg_errors.UniqueViolation as exc:
+        conn.rollback()
+        raise BudgetServiceError("category slug already exists") from exc
+    if row is None:
+        conn.rollback()
+        raise BudgetServiceError("category not found")
+    conn.commit()
+
+
 def list_categories(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             "SELECT id, slug, name, created_at FROM categories ORDER BY slug ASC"
         )
         return [dict(r) for r in cur.fetchall()]
+
+
+def bootstrap_default_categories(conn: psycopg.Connection) -> list[dict]:
+    with conn.cursor() as cur:
+        for slug, name in DEFAULT_CATEGORY_ROWS:
+            cur.execute(
+                """
+                INSERT INTO categories (slug, name)
+                VALUES (%s, %s)
+                ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+                """,
+                (slug, name),
+            )
+    conn.commit()
+    return list_categories(conn)
 
 
 def upsert_budgets(

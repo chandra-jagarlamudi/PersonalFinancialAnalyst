@@ -14,6 +14,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from pfa.anomalies_api import router as anomalies_router
+from pfa.auth import require_authenticated
+from pfa.auth_api import router as auth_router
+from pfa.dashboard_api import router as dashboard_router
 from pfa.budget_api import router as budget_router
 from pfa.chat_api import router as chat_router
 from pfa.categorization_api import router as categorization_router
@@ -34,6 +37,7 @@ from pfa.job_api import router as job_router
 from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
 from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
+from pfa.transactions_api import router as transactions_router
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_PDF_UPLOAD_BYTES = MAX_CSV_UPLOAD_BYTES
@@ -88,7 +92,11 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/ingest/csv", response_model=IngestResponse)
+@app.post(
+    "/ingest/csv",
+    response_model=IngestResponse,
+    dependencies=[Depends(require_authenticated)],
+)
 def ingest_csv(
     account_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
@@ -151,7 +159,11 @@ def _ensure_pdf_magic(raw: bytes) -> None:
         )
 
 
-@app.post("/ingest/pdf", response_model=PdfIngestResponse)
+@app.post(
+    "/ingest/pdf",
+    response_model=PdfIngestResponse,
+    dependencies=[Depends(require_authenticated)],
+)
 def ingest_pdf(
     account_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
@@ -188,7 +200,11 @@ def ingest_pdf(
     )
 
 
-@app.delete("/statements/{statement_id}", status_code=204)
+@app.delete(
+    "/statements/{statement_id}",
+    status_code=204,
+    dependencies=[Depends(require_authenticated)],
+)
 def purge_statement_endpoint(statement_id: UUID):
     with connect() as conn:
         file_path = purge_statement(conn, statement_id)
