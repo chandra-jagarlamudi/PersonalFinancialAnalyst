@@ -75,7 +75,13 @@ export default function BudgetPage() {
     setError(null)
     try {
       const items = Object.entries(amountMap)
-        .filter(([, v]) => v !== '' && parseFloat(v) > 0)
+        .filter(([, v]) => {
+          if (v.trim() === '') {
+            return false
+          }
+          const parsed = Number(v)
+          return !Number.isNaN(parsed) && parsed >= 0
+        })
         .map(([category_id, amount]) => ({ category_id, amount }))
       await putBudgets(yearMonth, items)
       setSaveMsg('Budgets saved.')
