@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -21,7 +22,7 @@ class StatementOut(BaseModel):
     byte_size: int
     inserted: int
     skipped_duplicates: int
-    created_at: str
+    created_at: datetime
 
 
 def _row_to_out(row: dict) -> StatementOut:
@@ -33,7 +34,7 @@ def _row_to_out(row: dict) -> StatementOut:
         byte_size=row["byte_size"],
         inserted=row["inserted"],
         skipped_duplicates=row["skipped_duplicates"],
-        created_at=row["created_at"].isoformat(),
+        created_at=row["created_at"],
     )
 
 
