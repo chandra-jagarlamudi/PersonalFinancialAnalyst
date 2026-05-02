@@ -93,5 +93,14 @@ def test_suggest_averages_total_over_lookback_months(client, sample_account_id, 
     assert sug[0]["history_total_spend"] == "300.0000"
 
 
+def test_budget_status_empty(client):
+    assert client.get("/budgets/2025-01/status").json() == []
+
+
+def test_budget_suggest_empty(client):
+    assert client.post("/budgets/2025-01/suggest", json={}).json() == []
+
+
 def test_invalid_year_month_returns_422(client):
     assert client.get("/budgets/2025-13/status").status_code == 422
+    assert client.get("/budgets/not-a-date/status").status_code == 422
