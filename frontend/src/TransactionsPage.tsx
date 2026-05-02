@@ -225,13 +225,32 @@ export default function TransactionsPage() {
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const TRANSACTIONS_PAGE_SIZE = 100
 
   async function fetchTransactions(uncategorized: boolean) {
     setLoading(true)
     setError(null)
     try {
-      const txs = await listTransactions({ uncategorized: uncategorized || undefined })
-      setTransactions(txs)
+      const allTransactions: Transaction[] = []
+      let offset = 0
+
+      while (true) {
+        const page = await listTransactions({
+          uncategorized: uncategorized || undefined,
+          limit: TRANSACTIONS_PAGE_SIZE,
+          offset,
+        })
+
+        allTransactions.push(...page)
+
+        if (page.length < TRANSACTIONS_PAGE_SIZE) {
+          break
+        }
+
+        offset += page.length
+      }
+
+      setTransactions(allTransactions)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load transactions')
     } finally {
