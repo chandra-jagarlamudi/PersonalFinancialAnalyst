@@ -168,11 +168,14 @@ def propose_rule(transaction_id: UUID, body: RuleProposalIn):
 
         _validate_postgres_regex(conn, body.pattern)
 
-        count_row = conn.execute(
-            "SELECT COUNT(*) FROM transactions WHERE category_id IS NULL AND description_normalized ~* %s",
-            (body.pattern,),
-        ).fetchone()
-        would_affect = count_row[0] if count_row else 0
+        if body.apply_retroactively:
+            count_row = conn.execute(
+                "SELECT COUNT(*) FROM transactions WHERE category_id IS NULL AND description_normalized ~* %s",
+                (body.pattern,),
+            ).fetchone()
+            would_affect = count_row[0] if count_row else 0
+        else:
+            would_affect = 0
 
     return RuleProposalOut(
         proposed_rule={"pattern": body.pattern, "apply_retroactively": body.apply_retroactively},

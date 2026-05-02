@@ -86,6 +86,27 @@ export function listCategories(): Promise<Category[]> {
   return request<Category[]>('/categories')
 }
 
+export function listStatements(accountId?: string): Promise<Statement[]> {
+  const qs = accountId ? `?account_id=${accountId}` : ''
+  return request<Statement[]>(`/statements${qs}`)
+}
+
+export function getStatement(id: string): Promise<Statement> {
+  return request<Statement>(`/statements/${id}`)
+}
+
+export function purgeStatement(id: string): Promise<void> {
+  return request<void>(`/statements/${id}`, { method: 'DELETE' })
+}
+
+export function listAccounts(): Promise<Account[]> {
+  return request<Account[]>('/accounts')
+}
+
+export function listInstitutions(): Promise<Institution[]> {
+  return request<Institution[]>('/institutions')
+}
+
 export type Transaction = {
   id: string
   account_id: string
@@ -115,11 +136,13 @@ export function listTransactions(params?: {
   account_id?: string
   uncategorized?: boolean
   limit?: number
+  offset?: number
 }): Promise<Transaction[]> {
   const search = new URLSearchParams()
   if (params?.account_id) search.set('account_id', params.account_id)
   if (params?.uncategorized) search.set('uncategorized', 'true')
   if (params?.limit != null) search.set('limit', String(params.limit))
+  if (params?.offset != null) search.set('offset', String(params.offset))
   const qs = search.toString()
   return request<Transaction[]>(`/transactions${qs ? `?${qs}` : ''}`)
 }
@@ -152,25 +175,4 @@ export function createRule(body: {
 
 export function listRules(): Promise<Rule[]> {
   return request<Rule[]>('/categorization/rules')
-}
-
-export function listStatements(accountId?: string): Promise<Statement[]> {
-  const qs = accountId ? `?account_id=${accountId}` : ''
-  return request<Statement[]>(`/statements${qs}`)
-}
-
-export function getStatement(id: string): Promise<Statement> {
-  return request<Statement>(`/statements/${id}`)
-}
-
-export function purgeStatement(id: string): Promise<void> {
-  return request<void>(`/statements/${id}`, { method: 'DELETE' })
-}
-
-export function listAccounts(): Promise<Account[]> {
-  return request<Account[]>('/accounts')
-}
-
-export function listInstitutions(): Promise<Institution[]> {
-  return request<Institution[]>('/institutions')
 }

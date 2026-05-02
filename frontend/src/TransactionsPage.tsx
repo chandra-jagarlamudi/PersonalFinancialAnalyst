@@ -23,11 +23,17 @@ type EditorState =
 function TransactionRow({
   tx,
   categories,
+  categoryError,
+  onRetryCategories,
   onUpdated,
+  onRuleCreated,
 }: {
   tx: Transaction
   categories: Category[]
+  categoryError: string | null
+  onRetryCategories: () => void
   onUpdated: (updated: Transaction) => void
+  onRuleCreated: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editor, setEditor] = useState<EditorState>({ phase: 'category' })
@@ -102,6 +108,9 @@ function TransactionRow({
       setSuccess('Rule created successfully.')
       setEditor({ phase: 'done' })
       setExpanded(false)
+      if (retroactive) {
+        onRuleCreated()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create rule failed')
     } finally {
@@ -113,6 +122,13 @@ function TransactionRow({
     <>
       <tr
         onClick={handleRowClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleRowClick()
+          }
+        }}
+        tabIndex={0}
         style={{ cursor: 'pointer' }}
         aria-expanded={expanded}
       >
@@ -129,25 +145,42 @@ function TransactionRow({
 
             {editor.phase === 'category' && (
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ fontWeight: 600 }}>Category:</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  <option value="">— select —</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); void handleSaveCategory() }}
-                  disabled={!selectedCategory || saving}
-                >
-                  {saving ? 'Saving…' : 'Save correction'}
-                </button>
+                {categoryError && categories.length === 0 ? (
+                  <>
+                    <span className="error-banner" style={{ margin: 0 }}>
+                      Could not load categories: {categoryError}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onRetryCategories() }}
+                    >
+                      Retry
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label htmlFor={`cat-select-${tx.id}`} style={{ fontWeight: 600 }}>Category:</label>
+                    <select
+                      id={`cat-select-${tx.id}`}
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                    >
+                      <option value="">— select —</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleSaveCategory() }}
+                      disabled={!selectedCategory || saving}
+                    >
+                      {saving ? 'Saving…' : 'Save correction'}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -155,8 +188,9 @@ function TransactionRow({
               <div>
                 <p style={{ marginBottom: '0.75rem', fontWeight: 600 }}>Propose a rule?</p>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                  <label>Pattern:</label>
+                  <label htmlFor={`pattern-${tx.id}`}>Pattern:</label>
                   <input
+                    id={`pattern-${tx.id}`}
                     value={pattern}
                     onChange={(e) => { setPattern(e.target.value); setPreview(null) }}
                     style={{ flex: '1', minWidth: '200px' }}
@@ -194,8 +228,18 @@ function TransactionRow({
                   )}
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); void handleCreateRule() }}
-                    disabled={!pattern || creatingRule}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (retroactive) {
+                        if (!preview) return
+                        const confirmed = window.confirm(
+                          `Apply this rule retroactively to ${preview.would_affect_count} transaction(s)? This will update existing transactions.`
+                        )
+                        if (!confirmed) return
+                      }
+                      void handleCreateRule()
+                    }}
+                    disabled={!pattern || creatingRule || (retroactive && !preview)}
                   >
                     {creatingRule ? 'Creating…' : 'Create rule'}
                   </button>
@@ -212,16 +256,36 @@ function TransactionRow({
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const TRANSACTIONS_PAGE_SIZE = 100
 
   async function fetchTransactions(uncategorized: boolean) {
     setLoading(true)
     setError(null)
     try {
-      const txs = await listTransactions({ uncategorized: uncategorized || undefined })
-      setTransactions(txs)
+      const allTransactions: Transaction[] = []
+      let offset = 0
+
+      while (true) {
+        const page = await listTransactions({
+          uncategorized: uncategorized || undefined,
+          limit: TRANSACTIONS_PAGE_SIZE,
+          offset,
+        })
+
+        allTransactions.push(...page)
+
+        if (page.length < TRANSACTIONS_PAGE_SIZE) {
+          break
+        }
+
+        offset += page.length
+      }
+
+      setTransactions(allTransactions)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load transactions')
     } finally {
@@ -229,11 +293,19 @@ export default function TransactionsPage() {
     }
   }
 
+  async function loadCategories() {
+    setCategoryError(null)
+    try {
+      const cats = await listCategories()
+      setCategories(cats)
+    } catch (err) {
+      setCategoryError(err instanceof Error ? err.message : 'Failed to load categories')
+    }
+  }
+
   useEffect(() => {
     void fetchTransactions(uncategorizedOnly)
-    listCategories()
-      .then(setCategories)
-      .catch(() => {/* silently ignore category load failure */})
+    void loadCategories()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -243,8 +315,29 @@ export default function TransactionsPage() {
     void fetchTransactions(next)
   }
 
+  function isUncategorizedTransaction(tx: Transaction): boolean {
+    const candidate = tx as Transaction & {
+      category?: Category | null
+      categoryId?: string | null
+    }
+
+    return candidate.category == null && candidate.categoryId == null
+  }
+
   function handleUpdated(updated: Transaction) {
-    setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+    setTransactions((prev) => {
+      if (!uncategorizedOnly) {
+        return prev.map((t) => (t.id === updated.id ? updated : t))
+      }
+
+      return prev.flatMap((t) => {
+        if (t.id !== updated.id) {
+          return [t]
+        }
+
+        return isUncategorizedTransaction(updated) ? [updated] : []
+      })
+    })
   }
 
   return (
@@ -289,7 +382,10 @@ export default function TransactionsPage() {
                 key={tx.id}
                 tx={tx}
                 categories={categories}
+                categoryError={categoryError}
+                onRetryCategories={loadCategories}
                 onUpdated={handleUpdated}
+                onRuleCreated={() => void fetchTransactions(uncategorizedOnly)}
               />
             ))}
           </tbody>
