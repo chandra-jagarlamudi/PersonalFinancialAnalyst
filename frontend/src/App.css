@@ -285,3 +285,9 @@ code {
 .budget-remaining-over {
   color: #fca5a5;
 }
+
+.budget-status-empty {
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 0.5rem;
+}

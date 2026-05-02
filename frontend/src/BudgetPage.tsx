@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   createCategory,
@@ -38,7 +38,11 @@ export default function BudgetPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
+  const loadVersionRef = useRef(0)
+
   const loadData = useCallback(async (ym: string) => {
+    loadVersionRef.current += 1
+    const version = loadVersionRef.current
     setLoading(true)
     setError(null)
     setSaveMsg(null)
@@ -48,6 +52,7 @@ export default function BudgetPage() {
         listBudgets(ym),
         getBudgetStatus(ym),
       ])
+      if (version !== loadVersionRef.current) return
       setCategories(cats)
       const map: Record<string, string> = {}
       for (const cat of cats) {
@@ -59,9 +64,12 @@ export default function BudgetPage() {
       setAmountMap(map)
       setStatusRows(status)
     } catch (err) {
+      if (version !== loadVersionRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load budget data')
     } finally {
-      setLoading(false)
+      if (version === loadVersionRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -260,9 +268,13 @@ export default function BudgetPage() {
             </form>
           </details>
 
-          {statusRows.length > 0 && (
-            <div className="budget-status-section">
-              <h3>Budget vs Actual</h3>
+          <div className="budget-status-section">
+            <h3>Budget vs Actual</h3>
+            {statusRows.length === 0 ? (
+              <p className="budget-status-empty">
+                No budget data yet for this month. Save your budgets above to see actuals.
+              </p>
+            ) : (
               <table className="budget-table">
                 <thead>
                   <tr>
@@ -301,8 +313,8 @@ export default function BudgetPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </section>
