@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listStatements, purgeStatement, type Statement } from './api'
+import { listAccounts, listStatements, purgeStatement, type Account, type Statement } from './api'
 
 type Banner = { type: 'success' | 'error'; message: string }
 
@@ -15,6 +15,7 @@ function formatDate(iso: string): string {
 
 export default function StatementsPage() {
   const [statements, setStatements] = useState<Statement[]>([])
+  const [accounts, setAccounts] = useState<Map<string, Account>>(new Map())
   const [loading, setLoading] = useState(true)
   const [banner, setBanner] = useState<Banner | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -23,8 +24,9 @@ export default function StatementsPage() {
   async function load() {
     setLoading(true)
     try {
-      const data = await listStatements()
+      const [data, acctList] = await Promise.all([listStatements(), listAccounts()])
       setStatements(data)
+      setAccounts(new Map(acctList.map(a => [a.id, a])))
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load statements' })
     } finally {
@@ -67,6 +69,7 @@ export default function StatementsPage() {
         <table className="statements-table">
           <thead>
             <tr>
+              <th>Account</th>
               <th>Filename</th>
               <th>Uploaded</th>
               <th>Size</th>
@@ -78,6 +81,7 @@ export default function StatementsPage() {
           <tbody>
             {statements.map(s => (
               <tr key={s.id}>
+                <td>{accounts.get(s.account_id)?.name ?? s.account_id}</td>
                 <td>{s.filename}</td>
                 <td>{formatDate(s.created_at)}</td>
                 <td>{formatBytes(s.byte_size)}</td>
