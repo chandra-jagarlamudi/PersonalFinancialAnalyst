@@ -77,8 +77,8 @@ export function RecurringPage() {
     <section className="panel">
       <h2>Recurring Charges</h2>
       <p className="recurring-note">
-        Charges are flagged as recurring when the same merchant appears in 3 or more different
-        months with a similar amount.
+        Charges are flagged as recurring when the same merchant appears at least 3 times,
+        roughly 25–35 days apart, with amounts within about 10% of each other.
       </p>
 
       {state.status === 'loading' && <p>Loading recurring charges…</p>}
