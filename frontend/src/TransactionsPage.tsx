@@ -194,8 +194,18 @@ function TransactionRow({
                   )}
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); void handleCreateRule() }}
-                    disabled={!pattern || creatingRule}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (retroactive) {
+                        if (!preview) return
+                        const confirmed = window.confirm(
+                          `Apply this rule retroactively to ${preview.would_affect_count} transaction(s)? This will update existing transactions.`
+                        )
+                        if (!confirmed) return
+                      }
+                      void handleCreateRule()
+                    }}
+                    disabled={!pattern || creatingRule || (retroactive && !preview)}
                   >
                     {creatingRule ? 'Creating…' : 'Create rule'}
                   </button>
