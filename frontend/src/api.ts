@@ -265,3 +265,146 @@ export function createRule(body: {
 export function listRules(): Promise<Rule[]> {
   return request<Rule[]>('/categorization/rules')
 }
+
+export type AnomalySignal = {
+  kind: string
+  merchant: string
+  detail: string
+  transaction_id: string | null
+  transaction_date: string
+  amount: string | null
+}
+
+export function listAnomalies(accountId?: string): Promise<AnomalySignal[]> {
+  const qs = accountId ? `?account_id=${encodeURIComponent(accountId)}` : ''
+  return request<AnomalySignal[]>(`/anomalies${qs}`)
+}
+
+export type TransactionDetail = {
+  id: string
+  account_id: string
+  transaction_date: string
+  posted_date: string | null
+  amount: string
+  currency: string
+  description_raw: string
+  description_normalized: string
+  category_id: string | null
+  category_slug: string | null
+  category_name: string | null
+}
+
+export function getTransaction(id: string): Promise<TransactionDetail> {
+  return request<TransactionDetail>(`/transactions/${id}`)
+}
+
+export type IngestJobStep = {
+  step_key: string
+  status: string
+  item_count: number | null
+  detail: string | null
+}
+
+export type IngestJob = {
+  id: string
+  job_type: string
+  status: string
+  account_id: string
+  statement_id: string | null
+  filename: string
+  byte_size: number
+  parsed_rows: number | null
+  inserted_rows: number | null
+  skipped_duplicates: number | null
+  error_detail: string | null
+  retry_count: number
+  steps: IngestJobStep[]
+}
+
+async function postMultipart<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}`
+    try {
+      const payload = (await response.json()) as { detail?: string }
+      if (payload.detail) {
+        detail = payload.detail
+      }
+    } catch {
+      // Ignore non-JSON error payloads.
+    }
+    throw new Error(detail)
+  }
+
+  return (await response.json()) as T
+}
+
+export function enqueueCsvImport(accountId: string, file: File): Promise<IngestJob> {
+  const form = new FormData()
+  form.set('account_id', accountId)
+  form.set('file', file)
+  return postMultipart<IngestJob>('/ingest/jobs/csv', form)
+}
+
+export function enqueuePdfImport(accountId: string, file: File): Promise<IngestJob> {
+  const form = new FormData()
+  form.set('account_id', accountId)
+  form.set('file', file)
+  return postMultipart<IngestJob>('/ingest/jobs/pdf', form)
+}
+
+export async function streamChat(
+  message: string,
+  onEvent: (ev: Record<string, unknown>) => void,
+): Promise<void> {
+  const response = await fetch('/api/chat/stream', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+
+  if (!response.ok || !response.body) {
+    let detail = `Chat request failed with status ${response.status}`
+    try {
+      const payload = (await response.json()) as { detail?: string }
+      if (payload.detail) {
+        detail = payload.detail
+      }
+    } catch {
+      // Ignore non-JSON error payloads.
+    }
+    throw new Error(detail)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() ?? ''
+    for (const chunk of chunks) {
+      const line = chunk.trim()
+      if (!line.startsWith('data:')) {
+        continue
+      }
+      const payload = line.slice(line.indexOf('data:') + 5).trim()
+      try {
+        onEvent(JSON.parse(payload) as Record<string, unknown>)
+      } catch {
+        // Ignore malformed SSE frames.
+      }
+    }
+  }
+}

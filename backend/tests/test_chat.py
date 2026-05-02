@@ -25,6 +25,17 @@ def test_plan_tool_calls_triggers_on_summary_keyword():
     assert plan_tool_calls("Give me a ledger summary") == [("ledger_summary", {})]
 
 
+def test_plan_tool_calls_budget_month():
+    assert plan_tool_calls("Budget status for 2025-03 please") == [
+        ("budget_status", {"year_month": "2025-03"})
+    ]
+
+
+def test_plan_sql_fence_first():
+    msg = "```sql\nSELECT 1 AS one LIMIT 1\n```"
+    assert plan_tool_calls(msg) == [("sql_select", {"query": "SELECT 1 AS one LIMIT 1"})]
+
+
 def test_plan_tool_calls_empty_when_smalltalk():
     assert plan_tool_calls("Hello there") == []
 
@@ -66,6 +77,8 @@ def test_stream_chat_emits_tool_error_and_done(monkeypatch):
         "name": "ledger_summary",
         "error": {"type": "ValueError", "message": "bad account_id"},
     } in events
+    assert events[-2]["type"] == "delta"
+    assert "error" in events[-2]["text"].lower()
     assert events[-1] == {"type": "done"}
 
 
@@ -76,7 +89,15 @@ def test_get_chat_tools_manifest(client):
     body = r.json()
     assert isinstance(body, list)
     names = {x["name"] for x in body}
-    assert "ledger_summary" in names
+    assert names >= {
+        "ledger_summary",
+        "budget_status",
+        "cashflow_monthly",
+        "recurring_highlights",
+        "anomalies_summary",
+        "category_breakdown",
+        "sql_select",
+    }
 
 
 @pytest.mark.integration

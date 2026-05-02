@@ -27,6 +27,10 @@ _VALID_CSV = (
     b"2025-03-02,-9.99,COFFEE\n"
 )
 
+_MINIMAL_PDF_BYTES = (
+    b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj trailer<<>>\n%%EOF\n"
+)
+
 
 def test_csv_job_persists_statement_and_transactions(client, db_conn, upload_dir):
     account_id = _setup_account(client)
@@ -107,6 +111,38 @@ def test_duplicate_csv_job_reuses_existing_statement(client, db_conn, upload_dir
         transaction_count = cur.fetchone()[0]
     assert statement_count == 1
     assert transaction_count == 2
+
+
+def test_pdf_stub_job_ends_in_needs_review(client, upload_dir):
+    account_id = _setup_account(client)
+    response = client.post(
+        "/ingest/jobs/pdf",
+        data={"account_id": account_id},
+        files={"file": ("stmt.pdf", _MINIMAL_PDF_BYTES, "application/pdf")},
+    )
+    assert response.status_code == 202
+    job_id = response.json()["id"]
+
+    body: dict | None = None
+    for _ in range(40):
+        body = client.get(f"/ingest/jobs/{job_id}").json()
+        if body["status"] not in {"pending", "running"}:
+            break
+    assert body is not None
+    assert body["status"] == "needs_review"
+    assert body["error_detail"] is not None
+    assert "PDF_REVIEW_REQUIRED" in body["error_detail"]
+    assert body["parsed_rows"] == 0
+
+
+def test_pdf_job_rejects_non_pdf(client):
+    account_id = _setup_account(client)
+    response = client.post(
+        "/ingest/jobs/pdf",
+        data={"account_id": account_id},
+        files={"file": ("not.pdf", b"hello-not-pdf", "application/pdf")},
+    )
+    assert response.status_code == 422
 
 
 def test_failed_job_can_retry(client, upload_dir):

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import StatementsPage from './StatementsPage'
@@ -50,7 +50,7 @@ describe('StatementsPage', () => {
       { body: [] }, // listInstitutions
     ])
     render(<StatementsPage />)
-    expect(await screen.findByText(/no statements uploaded yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no statements recorded yet/i)).toBeInTheDocument()
   })
 
   it('renders the statement list with institution and account name', async () => {
@@ -61,8 +61,8 @@ describe('StatementsPage', () => {
     ])
     render(<StatementsPage />)
 
-    // Full "Institution — Account" label is shown.
-    expect(await screen.findByText('First Bank — Checking')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('First Bank — Checking')).toBeInTheDocument()
     // Filename appears.
     expect(screen.getByText('jan.csv')).toBeInTheDocument()
     // Inserted / skipped counts.
@@ -79,7 +79,8 @@ describe('StatementsPage', () => {
       { body: [] }, // no institutions
     ])
     render(<StatementsPage />)
-    expect(await screen.findByText('Checking')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Checking')).toBeInTheDocument()
   })
 
   it('falls back to account_id when account is not in the accounts list', async () => {

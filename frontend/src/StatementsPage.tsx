@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
-import { listAccounts, listInstitutions, listStatements, purgeStatement, type Account, type Institution, type Statement } from './api'
+import {
+  enqueueCsvImport,
+  enqueuePdfImport,
+  listAccounts,
+  listInstitutions,
+  listStatements,
+  purgeStatement,
+  type Account,
+  type Institution,
+  type Statement,
+} from './api'
 
 type Banner = { type: 'success' | 'error'; message: string }
 
@@ -21,6 +31,9 @@ export default function StatementsPage() {
   const [banner, setBanner] = useState<Banner | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [purging, setPurging] = useState(false)
+  const [importAccountId, setImportAccountId] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
+  const [importHint, setImportHint] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -32,6 +45,9 @@ export default function StatementsPage() {
         const [acctList, instList] = await Promise.all([listAccounts(), listInstitutions()])
         setAccounts(new Map(acctList.map(a => [a.id, a])))
         setInstitutions(new Map(instList.map(i => [i.id, i])))
+        if (acctList.length > 0) {
+          setImportAccountId(prev => prev || acctList[0].id)
+        }
       } catch {
         setAccounts(new Map())
         setInstitutions(new Map())
@@ -60,9 +76,112 @@ export default function StatementsPage() {
     }
   }
 
+  async function handleQueuedCsv(file: File | undefined) {
+    if (!file || !importAccountId) return
+    setImportBusy(true)
+    setImportHint(null)
+    try {
+      const job = await enqueueCsvImport(importAccountId, file)
+      setImportHint(
+        `CSV job ${job.status}: ${job.filename} (${job.job_type}). Parsed rows ${job.parsed_rows ?? '—'}, inserted ${job.inserted_rows ?? '—'}.`,
+      )
+      await load()
+    } catch (err) {
+      setBanner({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'CSV queue import failed',
+      })
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  async function handleQueuedPdf(file: File | undefined) {
+    if (!file || !importAccountId) return
+    setImportBusy(true)
+    setImportHint(null)
+    try {
+      const job = await enqueuePdfImport(importAccountId, file)
+      const tail =
+        job.status === 'needs_review'
+          ? ' Parser flagged low confidence — review required before trusting extracted rows.'
+          : ''
+      setImportHint(
+        `PDF job ${job.status}: ${job.filename}.${tail}${job.error_detail ? ` (${job.error_detail})` : ''}`,
+      )
+      await load()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PDF queue import failed'
+      setBanner({
+        type: 'error',
+        message:
+          msg.includes('%PDF') || msg.includes('PDF')
+            ? `${msg} Unsupported files fail fast; parser-backed PDFs may stop in review when confidence is low.`
+            : msg,
+      })
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  const accountOptions = [...accounts.values()]
+
   return (
     <section className="panel">
       <h2>Statements</h2>
+
+      <div className="import-actions">
+        <h3>Queue imports</h3>
+        <p className="intro">
+          Upload through the durable ingest job pipeline (same persistence path as CSV jobs). PDF uses the targeted
+          parser with a human-review gate when confidence is low.
+        </p>
+        <div className="import-row">
+          <label>
+            Target account
+            <select
+              className="import-account-select"
+              value={importAccountId}
+              disabled={accountOptions.length === 0 || importBusy}
+              onChange={event => setImportAccountId(event.target.value)}
+              aria-label="Account for queued import"
+            >
+              {accountOptions.length === 0 ? (
+                <option value="">No accounts yet</option>
+              ) : (
+                accountOptions.map(a => {
+                  const inst = institutions.get(a.institution_id)
+                  const label = inst ? `${inst.name} — ${a.name}` : a.name
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {label}
+                    </option>
+                  )
+                })
+              )}
+            </select>
+          </label>
+          <label>
+            CSV job
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              disabled={importBusy || !importAccountId}
+              onChange={event => void handleQueuedCsv(event.target.files?.[0])}
+            />
+          </label>
+          <label>
+            PDF job
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              disabled={importBusy || !importAccountId}
+              onChange={event => void handleQueuedPdf(event.target.files?.[0])}
+            />
+          </label>
+        </div>
+        {importHint ? <p className="import-status">{importHint}</p> : null}
+      </div>
 
       {banner ? (
         <p className={banner.type === 'success' ? 'success-banner' : 'error-banner'}>
@@ -73,7 +192,7 @@ export default function StatementsPage() {
       {loading ? (
         <p>Loading statements…</p>
       ) : statements.length === 0 ? (
-        <p className="empty-state">No statements uploaded yet.</p>
+        <p className="empty-state">No statements recorded yet — queue a CSV or PDF import above.</p>
       ) : (
         <table className="statements-table">
           <thead>

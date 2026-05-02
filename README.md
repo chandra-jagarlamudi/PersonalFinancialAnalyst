@@ -29,9 +29,9 @@ The repo is ahead of the old README in a few areas. Today it contains:
 | Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
 | Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
 | Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
-| Frontend UI | Slice 1 app shell | Vite + React + TypeScript login form, session-aware shell, and protected API smoke checks. Full feature pages (upload, charts, budgeting, chat) remain in the PRD. |
-| Agent/chat workflows | Implemented | Embedded MCP-shaped tools + streaming chat (slice 10). |
-| PDF statement ingestion | Stub | Parser scaffold at `pdf_cc.py`; auto-ingest endpoint returns 501 until the institution-specific parser ships. |
+| Frontend UI | Slice 1 shell + slices 10–13 UI | Authenticated shell with statements queue uploads, anomalies review, streaming chat, and transaction drill-down from anomaly links. Charts/budget editors remain PRD follow-ups. |
+| Agent/chat workflows | Implemented | Embedded MCP-shaped read tools + deterministic streaming planner (`POST /chat/stream`). Aligns with GitHub slice 11 / issue #12. |
+| PDF statement ingestion | Partial | Targeted parser scaffold at `pdf_cc.py`; synchronous auto-ingest still returns **501** when the parser reports ingest-ready rows. **Queued PDF jobs** (`POST /ingest/jobs/pdf`) record `needs_review` when confidence is low (GitHub slice 13 / issue #14). |
 
 ## Product direction
 
@@ -235,6 +235,9 @@ This is a good example of the project's philosophy: recurring-spend detection is
 | `POST` | `/accounts` | Create an account (requires existing institution). |
 | `GET` | `/accounts` | List accounts. |
 | `POST` | `/ingest/csv` | Upload and ingest a CSV statement for an existing account. |
+| `POST` | `/ingest/jobs/csv` | Queue asynchronous CSV ingestion with step tracking (`extract → … → persist`). |
+| `POST` | `/ingest/jobs/pdf` | Queue asynchronous PDF ingestion; low-confidence parses finish as `needs_review`. |
+| `GET` | `/ingest/jobs` / `/ingest/jobs/{job_id}` | List ingest jobs or fetch one job plus step rows. |
 | `DELETE` | `/statements/{statement_id}` | Purge a statement record and attempt to remove the stored file. |
 | `POST` | `/categories` | Create a category. |
 | `GET` | `/categories` | List categories. |
@@ -250,8 +253,24 @@ This is a good example of the project's philosophy: recurring-spend detection is
 | `GET` | `/recurring` | Return recurring charge candidates. |
 | `GET` | `/chat/tools` | List available agent tool definitions. |
 | `POST` | `/chat/stream` | Stream agent responses via Server-Sent Events. |
-| `POST` | `/ingest/pdf` | Upload and parse a credit card statement PDF. |
+| `POST` | `/ingest/pdf` | Upload and parse a credit card statement PDF (sync probe / future auto-ingest). |
 | `GET` | `/anomalies` | Detect outliers in transaction data. |
+| `GET` | `/transactions/{transaction_id}` | Fetch one ledger row for anomaly drill-down. |
+
+### LangSmith tracing (optional)
+
+Chat/tool invokes optionally wrap LangSmith `traceable` runs when tracing env vars are enabled.
+
+| Step | What to do |
+|---|---|
+| Install extras | `python3 -m pip install -e ".[dev]"` pulls `langsmith` as an optional dependency. |
+| Configure secrets locally | Copy [.env.example](.env.example) values into `.env`: `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and optionally `LANGCHAIN_PROJECT`. Never commit keys. |
+| Disable cleanly | Omit `LANGCHAIN_TRACING_V2` or set it to `false`; missing API keys simply skip tracing without crashing the API. |
+| Verify | Ask the chat endpoint for a **ledger summary**, then confirm a corresponding tool span appears in the LangSmith UI for your project. |
+
+### Agent tool surface (read-only MVP)
+
+`/chat/tools` enumerates aggregates-first helpers (`ledger_summary`, `budget_status`, `cashflow_monthly`, `recurring_highlights`, `anomalies_summary`, `category_breakdown`) plus a fenced Markdown SQL block escape hatch (`SELECT`/`WITH` ending in `LIMIT n`, enforced server-side as `sql_select`). Mutating operations are intentionally absent from automatic invocation.
 
 ## Repository layout
 
@@ -408,9 +427,9 @@ The implemented backend is the foundation for a broader product. The PRD calls o
 |---|---|---|
 | Authentication and app shell | Implemented | Login, session management, and protected-route enforcement. |
 | Async jobs and job status | Implemented | Durable ingestion jobs with step-level progress, background processing, and retry support. |
-| Frontend application | Partial | Vite + React + TypeScript client now exists; upload, charts, budgeting, and chat remain to be built on top. |
-| PDF ingestion | Stub | Parser scaffold with confidence gate exists at `backend/pfa/pdf_cc.py`. The actual auto-ingest path returns 501 until the institution-specific parser ships. |
-| Agent and tool layer | Implemented | MCP-shaped tools and streaming chat are live. |
+| Frontend application | Partial | Authenticated shell plus statements queue uploads, anomalies list/detail navigation, streaming chat, and transaction drill-down are implemented; richer budgeting/charts pages remain PRD follow-ups. |
+| PDF ingestion | Partial | Parser scaffold + confidence/HITL gate at `backend/pfa/pdf_cc.py`. Queued PDF jobs finish as `needs_review` when confidence is low; synchronous auto-ingest still returns **501** once the parser reports ingest-ready rows. |
+| Agent and tool layer | Implemented | MCP-shaped **read-only** tools (aggregates + guarded `sql_select`) and deterministic streaming chat are live; mutating agent actions stay unimplemented pending confirmation UX. |
 | Observability | Implemented | LangSmith tracing wired for agent and tool execution. |
 | More analytics | Implemented | Row and series outlier detection API is live. |
 

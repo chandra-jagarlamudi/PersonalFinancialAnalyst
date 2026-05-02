@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
+import AnomaliesPage from './AnomaliesPage'
 import BudgetPage from './BudgetPage'
+import ChatPage from './ChatPage'
 import { RecurringPage } from './RecurringPage'
 import StatementsPage from './StatementsPage'
+import TransactionDetailPage from './TransactionDetailPage'
 import TransactionsPage from './TransactionsPage'
 import './App.css'
 
@@ -171,15 +174,20 @@ function Shell({
           <Link to="/transactions">Transactions</Link>
           <Link to="/budgets">Budgets</Link>
           <Link to="/recurring">Recurring</Link>
+          <Link to="/anomalies">Anomalies</Link>
+          <Link to="/chat">Chat</Link>
         </nav>
         <Routes>
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
           <Route path="/statements" element={<StatementsPage />} />
           <Route path="/statements/:id" element={<Navigate to="/statements" replace />} />
+          <Route path="/transactions/:id" element={<TransactionDetailPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/budgets" element={<BudgetPage />} />
           <Route path="/recurring" element={<RecurringPage />} />
+          <Route path="/anomalies" element={<AnomaliesPage />} />
+          <Route path="/chat" element={<ChatPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

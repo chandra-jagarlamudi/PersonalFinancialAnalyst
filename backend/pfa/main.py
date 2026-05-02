@@ -32,11 +32,12 @@ from pfa.ingest import (
     statement_exists_by_hash,
     update_statement_counts,
 )
-from pfa.ingest_jobs import process_csv_job, recoverable_job_ids
+from pfa.ingest_jobs import dispatch_ingest_job_sync, recoverable_job_ids
 from pfa.job_api import router as job_router
 from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
 from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
+from pfa.transactions_api import router as transactions_router
 
 MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_PDF_UPLOAD_BYTES = MAX_CSV_UPLOAD_BYTES
@@ -66,7 +67,7 @@ async def lifespan(app: FastAPI):
         with connect() as conn:
             ensure_schema(conn)
         for job_id in recoverable_job_ids():
-            create_task(to_thread(process_csv_job, job_id))
+            create_task(to_thread(dispatch_ingest_job_sync, job_id))
     yield
 
 
@@ -83,6 +84,7 @@ app.include_router(recurring_router, dependencies=[Depends(require_authenticated
 app.include_router(chat_router, dependencies=[Depends(require_authenticated)])
 app.include_router(anomalies_router, dependencies=[Depends(require_authenticated)])
 app.include_router(statements_router, dependencies=[Depends(require_authenticated)])
+app.include_router(transactions_router, dependencies=[Depends(require_authenticated)])
 
 
 @app.get("/", include_in_schema=False)

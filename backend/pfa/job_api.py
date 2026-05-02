@@ -8,7 +8,14 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
-from pfa.ingest_jobs import create_csv_job, get_job, list_jobs, process_csv_job, retry_job
+from pfa.ingest_jobs import (
+    create_csv_job,
+    create_pdf_job,
+    dispatch_ingest_job_sync,
+    get_job,
+    list_jobs,
+    retry_job,
+)
 
 router = APIRouter(prefix="/ingest/jobs", tags=["ingest-jobs"])
 
@@ -78,7 +85,27 @@ def post_csv_job(
         job_id = create_csv_job(account_id, file.filename or "upload.csv", raw)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    background_tasks.add_task(process_csv_job, job_id)
+    background_tasks.add_task(dispatch_ingest_job_sync, job_id)
+    row = get_job(job_id)
+    assert row is not None
+    return _row_to_job_out(row)
+
+
+@router.post("/pdf", response_model=JobOut, status_code=202)
+def post_pdf_job(
+    background_tasks: BackgroundTasks,
+    account_id: Annotated[UUID, Form()],
+    file: Annotated[UploadFile, File()],
+):
+    raw = file.file.read()
+    try:
+        job_id = create_pdf_job(account_id, file.filename or "upload.pdf", raw)
+    except ValueError as exc:
+        detail = str(exc)
+        if detail == "account not found":
+            raise HTTPException(status_code=404, detail=detail) from exc
+        raise HTTPException(status_code=422, detail=detail) from exc
+    background_tasks.add_task(dispatch_ingest_job_sync, job_id)
     row = get_job(job_id)
     assert row is not None
     return _row_to_job_out(row)
@@ -93,7 +120,7 @@ def post_retry_job(job_id: UUID, background_tasks: BackgroundTasks):
         if message == "job not found":
             raise HTTPException(status_code=404, detail=message) from exc
         raise HTTPException(status_code=409, detail=message) from exc
-    background_tasks.add_task(process_csv_job, job_id)
+    background_tasks.add_task(dispatch_ingest_job_sync, job_id)
     row = get_job(job_id)
     assert row is not None
     return _row_to_job_out(row)
