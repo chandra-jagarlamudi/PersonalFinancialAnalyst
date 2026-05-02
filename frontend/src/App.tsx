@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { getSession, listCategories, login, logout, type SessionState } from './api'
 import StatementsPage from './StatementsPage'
+import TransactionsPage from './TransactionsPage'
 import './App.css'
 
 type ProtectedState =
@@ -165,12 +166,14 @@ function Shell({
           <Link to="/">Overview</Link>
           <Link to="/smoke">API smoke</Link>
           <Link to="/statements">Statements</Link>
+          <Link to="/transactions">Transactions</Link>
         </nav>
         <Routes>
           <Route path="/" element={<Overview username={username} protectedState={protectedState} />} />
           <Route path="/smoke" element={<SmokePage protectedState={protectedState} />} />
           <Route path="/statements" element={<StatementsPage />} />
           <Route path="/statements/:id" element={<Navigate to="/statements" replace />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

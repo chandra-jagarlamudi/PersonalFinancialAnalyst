@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import datetime
+from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
 from pfa.categorization import apply_rules_retroactively
@@ -38,6 +42,18 @@ class CategoryPatch(BaseModel):
 class TransactionOut(BaseModel):
     id: UUID
     category_id: UUID | None
+
+
+class TransactionListItem(BaseModel):
+    id: UUID
+    account_id: UUID
+    transaction_date: datetime.date
+    amount: Decimal
+    description_raw: str
+    description_normalized: str
+    category_id: UUID | None
+    category_name: str | None
+    created_at: datetime.datetime
 
 
 class RuleProposalIn(BaseModel):
@@ -152,13 +168,54 @@ def propose_rule(transaction_id: UUID, body: RuleProposalIn):
 
         _validate_postgres_regex(conn, body.pattern)
 
-        count_row = conn.execute(
-            "SELECT COUNT(*) FROM transactions WHERE category_id IS NULL AND description_normalized ~* %s",
-            (body.pattern,),
-        ).fetchone()
-        would_affect = count_row[0] if count_row else 0
+        if body.apply_retroactively:
+            count_row = conn.execute(
+                "SELECT COUNT(*) FROM transactions WHERE category_id IS NULL AND description_normalized ~* %s",
+                (body.pattern,),
+            ).fetchone()
+            would_affect = count_row[0] if count_row else 0
+        else:
+            would_affect = 0
 
     return RuleProposalOut(
         proposed_rule={"pattern": body.pattern, "apply_retroactively": body.apply_retroactively},
         would_affect_count=would_affect,
     )
+
+
+@router.get("/transactions", response_model=list[TransactionListItem])
+def list_transactions(
+    account_id: Annotated[UUID | None, Query()] = None,
+    uncategorized: Annotated[bool, Query()] = False,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+):
+    conditions = []
+    params: list = []
+
+    if account_id is not None:
+        conditions.append("t.account_id = %s")
+        params.append(str(account_id))
+
+    if uncategorized:
+        conditions.append("t.category_id IS NULL")
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    sql = f"""
+        SELECT t.id, t.account_id, t.transaction_date, t.amount,
+               t.description_raw, t.description_normalized,
+               t.category_id, c.name AS category_name, t.created_at
+        FROM transactions t
+        LEFT JOIN categories c ON c.id = t.category_id
+        {where_clause}
+        ORDER BY t.transaction_date DESC, t.created_at DESC
+        LIMIT %s
+    """
+    params.append(limit)
+
+    with connect() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            rows = [dict(r) for r in cur.fetchall()]
+
+    return rows
