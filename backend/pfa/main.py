@@ -75,7 +75,7 @@ app.include_router(chat_router, dependencies=[Depends(require_authenticated)])
 app.include_router(anomalies_router, dependencies=[Depends(require_authenticated)])
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/")
 def root():
     return RedirectResponse(url="/docs", status_code=302)
 

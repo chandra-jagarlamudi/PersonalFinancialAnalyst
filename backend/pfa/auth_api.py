@@ -30,7 +30,10 @@ class SessionState(BaseModel):
 
 @router.get("/session", response_model=SessionState)
 def get_session(request: Request):
-    session = optional_session(request)
+    try:
+        session = optional_session(request)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if session is None:
         return SessionState(authenticated=False, username=None)
     return SessionState(authenticated=True, username=session.username)

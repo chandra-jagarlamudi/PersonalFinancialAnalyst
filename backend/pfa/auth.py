@@ -41,7 +41,11 @@ def auth_settings() -> AuthSettings:
     password = os.environ.get("PFA_AUTH_PASSWORD", "").strip()
     if not password:
         raise RuntimeError("PFA_AUTH_PASSWORD must be set")
-    ttl_hours = int(os.environ.get("PFA_SESSION_TTL_HOURS", "168"))
+    ttl_str = os.environ.get("PFA_SESSION_TTL_HOURS", "168").strip()
+    try:
+        ttl_hours = int(ttl_str)
+    except ValueError:
+        raise RuntimeError(f"PFA_SESSION_TTL_HOURS must be an integer, got '{ttl_str}'")
     if ttl_hours < 1:
         raise RuntimeError("PFA_SESSION_TTL_HOURS must be >= 1")
     return AuthSettings(
