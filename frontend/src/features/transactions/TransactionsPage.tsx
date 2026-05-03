@@ -212,8 +212,8 @@ function TransactionRow({
         <td className="txn-num">{formatAmount(tx.amount)}</td>
         <td className="txn-desc">{tx.description_normalized}</td>
         <td className="txn-cat">{tx.category_name ?? <em className="txn-uncat">Uncategorized</em>}</td>
-        <td className="txn-source" title={tx.source_statement_filename ?? undefined}>
-          {tx.source_statement_filename ?? '—'}
+        <td className="txn-account-col" title={tx.account_name ?? undefined}>
+          {tx.account_name ?? '—'}
         </td>
       </tr>
       {expanded && (
@@ -519,8 +519,8 @@ export default function TransactionsPage() {
                   <SortHeader label="Amount" column="amount" sort={sort} onSort={handleSortColumn} />
                   <SortHeader label="Description" column="description" sort={sort} onSort={handleSortColumn} />
                   <SortHeader label="Category" column="category" sort={sort} onSort={handleSortColumn} />
-                  <th scope="col" className="txn-th txn-th-source">
-                    Source
+                  <th scope="col" className="txn-th txn-th-account">
+                    Account
                   </th>
                 </tr>
               </thead>

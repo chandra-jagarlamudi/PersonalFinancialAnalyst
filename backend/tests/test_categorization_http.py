@@ -69,7 +69,7 @@ def test_list_transactions_after_ingest(client, sample_account_id, upload_dir):
     assert "category_name" in row
     assert row["category_name"] is None
     assert "created_at" in row
-    assert row["source_statement_filename"] == "t.csv"
+    assert row["account_name"] == "Checking"
 
 
 # ---------------------------------------------------------------------------

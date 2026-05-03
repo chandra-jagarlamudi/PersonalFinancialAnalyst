@@ -16,7 +16,7 @@ const TX_1 = {
   description_normalized: 'starbucks',
   category_id: null as string | null,
   category_name: null as string | null,
-  source_statement_filename: 'stmt.csv' as string | null,
+  account_name: 'Checking' as string | null,
   created_at: '2024-01-15T10:00:00Z',
 }
 

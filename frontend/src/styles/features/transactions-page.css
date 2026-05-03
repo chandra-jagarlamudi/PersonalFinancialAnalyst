@@ -258,7 +258,7 @@
   font-size: 0.88rem;
 }
 
-.txn-source {
+.txn-account-col {
   max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
