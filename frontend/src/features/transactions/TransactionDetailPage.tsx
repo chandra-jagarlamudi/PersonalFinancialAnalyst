@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getTransaction, listAccounts, listInstitutions, type Account, type Institution, type TransactionDetail } from './api'
+import { getTransaction, listAccounts, listInstitutions, type Account, type Institution, type TransactionDetail } from '@/api'
 
 export default function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>()

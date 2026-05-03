@@ -30,6 +30,60 @@ function mockFetch(responses: Array<{ ok?: boolean; status?: number; body?: unkn
   return mock
 }
 
+const INGEST_JOB_CSV = {
+  id: 'job-csv-1',
+  job_type: 'csv-import',
+  status: 'succeeded',
+  account_id: 'acct-1',
+  statement_id: 'stmt-new',
+  filename: 'data.csv',
+  byte_size: 48,
+  parsed_rows: 1,
+  inserted_rows: 1,
+  skipped_duplicates: 0,
+  error_detail: null,
+  retry_count: 0,
+  steps: [],
+}
+
+const INGEST_JOB_PDF = {
+  id: 'job-pdf-1',
+  job_type: 'pdf-import',
+  status: 'needs_review',
+  account_id: 'acct-1',
+  statement_id: 'stmt-pdf-1',
+  filename: 'stmt.pdf',
+  byte_size: 64,
+  parsed_rows: 0,
+  inserted_rows: null,
+  skipped_duplicates: null,
+  error_detail: 'PDF_REVIEW_REQUIRED confidence=0.35 rows=0 notes=stub_parser_v0:no_rows',
+  retry_count: 0,
+  steps: [],
+}
+
+const STATEMENT_AFTER_CSV = {
+  id: 'stmt-new',
+  account_id: 'acct-1',
+  filename: 'data.csv',
+  sha256: 'aa11',
+  byte_size: 48,
+  inserted: 1,
+  skipped_duplicates: 0,
+  created_at: '2025-02-01T10:00:00',
+}
+
+const STATEMENT_AFTER_PDF = {
+  id: 'stmt-pdf-1',
+  account_id: 'acct-1',
+  filename: 'stmt.pdf',
+  sha256: 'bb22',
+  byte_size: 64,
+  inserted: 0,
+  skipped_duplicates: 0,
+  created_at: '2025-02-01T11:00:00',
+}
+
 describe('StatementsPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -51,6 +105,23 @@ describe('StatementsPage', () => {
     ])
     render(<StatementsPage />)
     expect(await screen.findByText(/no statements recorded yet/i)).toBeInTheDocument()
+  })
+
+  it('expands a statement row on click to show identifiers, and collapses on second click', async () => {
+    mockFetch([
+      { body: [STATEMENT] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+    ])
+    render(<StatementsPage />)
+    await screen.findByText('jan.csv')
+    expect(screen.queryByText(STATEMENT.sha256)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('jan.csv'))
+    expect(screen.getByText(STATEMENT.sha256)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('jan.csv'))
+    expect(screen.queryByText(STATEMENT.sha256)).not.toBeInTheDocument()
   })
 
   it('renders the statement list with institution and account name', async () => {
@@ -169,6 +240,79 @@ describe('StatementsPage', () => {
     // fallback only fires for non-Error throws.
     expect(await screen.findByText(/network failure/i)).toBeInTheDocument()
     expect(screen.getByText(/network failure/i).closest('p')).toHaveClass('error-banner')
+  })
+
+  it('posts CSV to ingest job endpoint with FormData then reloads statements', async () => {
+    // Fetch order: initial load (statements, accounts, institutions), POST enqueue,
+    // pollIngestJob → GET /api/ingest/jobs/:id until terminal, then load() (3 GETs).
+    const mock = mockFetch([
+      { body: [] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+      { status: 202, body: INGEST_JOB_CSV },
+      { body: INGEST_JOB_CSV },
+      { body: [STATEMENT_AFTER_CSV] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+    ])
+    render(<StatementsPage />)
+    await screen.findByText(/queue imports/i)
+
+    fireEvent.click(screen.getByRole('radio', { name: 'CSV' }))
+    const fileInput = screen.getByLabelText(/statement file for queued import/i)
+    const file = new File(['transaction_date,amount,description\n2025-03-01,-1.00,X\n'], 'data.csv', {
+      type: 'text/csv',
+    })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('data.csv')).toBeInTheDocument()
+    })
+
+    const postCall = mock.mock.calls.find(args => args[1]?.method === 'POST')
+    expect(postCall).toBeDefined()
+    expect(String(postCall![0])).toContain('/api/ingest/jobs/csv')
+    expect(postCall![1]?.body).toBeInstanceOf(FormData)
+    const fd = postCall![1]!.body as FormData
+    expect(fd.get('account_id')).toBe('acct-1')
+    expect(fd.get('file')).toBeInstanceOf(File)
+    expect((fd.get('file') as File).name).toBe('data.csv')
+  })
+
+  it('posts PDF to ingest job endpoint with FormData then reloads statements', async () => {
+    // Same fetch order as CSV case; terminal status here is needs_review.
+    const mock = mockFetch([
+      { body: [] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+      { status: 202, body: INGEST_JOB_PDF },
+      { body: INGEST_JOB_PDF },
+      { body: [STATEMENT_AFTER_PDF] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+    ])
+    render(<StatementsPage />)
+    await screen.findByText(/queue imports/i)
+
+    const minimalPdf = new Uint8Array([
+      0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a,
+    ])
+    const file = new File([minimalPdf], 'stmt.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByLabelText(/statement file for queued import/i), {
+      target: { files: [file] },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('stmt.pdf')).toBeInTheDocument()
+    })
+
+    const postCall = mock.mock.calls.find(args => args[1]?.method === 'POST')
+    expect(postCall).toBeDefined()
+    expect(String(postCall![0])).toContain('/api/ingest/jobs/pdf')
+    expect(postCall![1]?.body).toBeInstanceOf(FormData)
+    const fd = postCall![1]!.body as FormData
+    expect(fd.get('account_id')).toBe('acct-1')
+    expect((fd.get('file') as File).name).toBe('stmt.pdf')
   })
 })
 

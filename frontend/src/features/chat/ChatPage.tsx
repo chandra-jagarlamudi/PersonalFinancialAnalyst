@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
-import { streamChat } from './api'
+import { streamChat } from '@/api'
 
 type ChatMsg = { role: 'user' | 'assistant'; text: string }
 

@@ -355,6 +355,15 @@ npm run dev
 
 Open `http://127.0.0.1:5173` and sign in with `PFA_AUTH_USERNAME` / `PFA_AUTH_PASSWORD` from `.env`. The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`, so the browser can keep the session cookie while talking to protected backend routes.
 
+**Frontend source layout (`frontend/src/`):**
+
+| Area | Purpose |
+|------|---------|
+| `app/` | Login form (`app/auth`) and authenticated shell + routes (`app/layout`). |
+| `features/<name>/` | Route-level screens (for example `features/statements`, `features/transactions`). |
+| `api/` | HTTP helpers (`http.ts`) and domain modules re-exported from `api/index.ts`; feature code imports via the `@/api` alias. |
+| `styles/` | Global CSS partials; `styles/index.css` pulls in shell styling and feature chunks. |
+
 ### 7. Stop the stack
 
 ```bash

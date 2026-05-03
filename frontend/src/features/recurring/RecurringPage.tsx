@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listRecurring, type RecurringCharge } from './api'
+import { listRecurring, type RecurringCharge } from '@/api'
 
 type State =
   | { status: 'loading' }

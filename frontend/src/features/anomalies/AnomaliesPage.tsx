@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listAccounts, listAnomalies, type Account, type AnomalySignal } from './api'
+import { listAccounts, listAnomalies, type Account, type AnomalySignal } from '@/api'
 
 function formatMoney(amount: string | null): string {
   if (amount === null || amount === '') {

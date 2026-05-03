@@ -9,7 +9,7 @@ import {
   suggestBudgets,
   type BudgetStatus,
   type Category,
-} from './api'
+} from '@/api'
 
 function currentYearMonth(): string {
   const now = new Date()

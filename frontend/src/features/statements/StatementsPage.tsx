@@ -1,17 +1,19 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   enqueueCsvImport,
   enqueuePdfImport,
   listAccounts,
   listInstitutions,
   listStatements,
+  pollIngestJob,
   purgeStatement,
   type Account,
   type Institution,
   type Statement,
-} from './api'
+} from '@/api'
 
 type Banner = { type: 'success' | 'error'; message: string }
+type ImportKind = 'csv' | 'pdf'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -34,6 +36,8 @@ export default function StatementsPage() {
   const [importAccountId, setImportAccountId] = useState('')
   const [importBusy, setImportBusy] = useState(false)
   const [importHint, setImportHint] = useState<string | null>(null)
+  const [importKind, setImportKind] = useState<ImportKind>('pdf')
+  const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -79,9 +83,11 @@ export default function StatementsPage() {
   async function handleQueuedCsv(file: File | undefined) {
     if (!file || !importAccountId) return
     setImportBusy(true)
-    setImportHint(null)
+    setImportHint('Uploading…')
     try {
-      const job = await enqueueCsvImport(importAccountId, file)
+      const pending = await enqueueCsvImport(importAccountId, file)
+      setImportHint('Processing…')
+      const job = await pollIngestJob(pending.id)
       setImportHint(
         `CSV job ${job.status}: ${job.filename} (${job.job_type}). Parsed rows ${job.parsed_rows ?? '—'}, inserted ${job.inserted_rows ?? '—'}.`,
       )
@@ -99,9 +105,11 @@ export default function StatementsPage() {
   async function handleQueuedPdf(file: File | undefined) {
     if (!file || !importAccountId) return
     setImportBusy(true)
-    setImportHint(null)
+    setImportHint('Uploading…')
     try {
-      const job = await enqueuePdfImport(importAccountId, file)
+      const pending = await enqueuePdfImport(importAccountId, file)
+      setImportHint('Processing…')
+      const job = await pollIngestJob(pending.id)
       const tail =
         job.status === 'needs_review'
           ? ' Parser flagged low confidence — review required before trusting extracted rows.'
@@ -161,22 +169,52 @@ export default function StatementsPage() {
               )}
             </select>
           </label>
+          <div
+            className="import-format-group"
+            role="group"
+            aria-labelledby="import-format-heading"
+          >
+            <div id="import-format-heading" className="import-format-heading">
+              File type
+            </div>
+            <div className="import-format-radios">
+              <label className="import-radio-label">
+                <input
+                  type="radio"
+                  name="import-kind"
+                  value="csv"
+                  checked={importKind === 'csv'}
+                  disabled={importBusy || !importAccountId}
+                  onChange={() => setImportKind('csv')}
+                />
+                CSV
+              </label>
+              <label className="import-radio-label">
+                <input
+                  type="radio"
+                  name="import-kind"
+                  value="pdf"
+                  checked={importKind === 'pdf'}
+                  disabled={importBusy || !importAccountId}
+                  onChange={() => setImportKind('pdf')}
+                />
+                PDF
+              </label>
+            </div>
+          </div>
           <label>
-            CSV job
+            Statement file
             <input
+              key={importKind}
               type="file"
-              accept=".csv,text/csv"
+              accept={importKind === 'csv' ? '.csv,text/csv' : '.pdf,application/pdf'}
               disabled={importBusy || !importAccountId}
-              onChange={event => void handleQueuedCsv(event.target.files?.[0])}
-            />
-          </label>
-          <label>
-            PDF job
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              disabled={importBusy || !importAccountId}
-              onChange={event => void handleQueuedPdf(event.target.files?.[0])}
+              aria-label="Statement file for queued import"
+              onChange={event => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                void (importKind === 'csv' ? handleQueuedCsv(file) : handleQueuedPdf(file))
+              }}
             />
           </label>
         </div>
@@ -208,54 +246,90 @@ export default function StatementsPage() {
           </thead>
           <tbody>
             {statements.map(s => (
-              <tr key={s.id}>
-                <td>
-                  {(() => {
-                    const acct = accounts.get(s.account_id)
-                    if (!acct) return s.account_id
-                    const inst = institutions.get(acct.institution_id)
-                    return inst ? `${inst.name} — ${acct.name}` : acct.name
-                  })()}
-                </td>
-                <td>{s.filename}</td>
-                <td>{formatDate(s.created_at)}</td>
-                <td>{formatBytes(s.byte_size)}</td>
-                <td>{s.inserted}</td>
-                <td>{s.skipped_duplicates}</td>
-                <td>
-                  {confirmId === s.id ? (
-                    <span className="confirm-inline">
-                      <span className="confirm-text">
-                        Are you sure? This permanently deletes the file and all transactions from this statement.
+              <Fragment key={s.id}>
+                <tr
+                  tabIndex={0}
+                  aria-expanded={expandedStatementId === s.id}
+                  className="statement-row"
+                  onClick={() =>
+                    setExpandedStatementId(prev => (prev === s.id ? null : s.id))
+                  }
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setExpandedStatementId(prev => (prev === s.id ? null : s.id))
+                    }
+                  }}
+                >
+                  <td>
+                    {(() => {
+                      const acct = accounts.get(s.account_id)
+                      if (!acct) return s.account_id
+                      const inst = institutions.get(acct.institution_id)
+                      return inst ? `${inst.name} — ${acct.name}` : acct.name
+                    })()}
+                  </td>
+                  <td>{s.filename}</td>
+                  <td>{formatDate(s.created_at)}</td>
+                  <td>{formatBytes(s.byte_size)}</td>
+                  <td>{s.inserted}</td>
+                  <td>{s.skipped_duplicates}</td>
+                  <td onClick={event => event.stopPropagation()}>
+                    {confirmId === s.id ? (
+                      <span className="confirm-inline">
+                        <span className="confirm-text">
+                          Are you sure? This permanently deletes the file and all transactions from this statement.
+                        </span>
+                        <button
+                          type="button"
+                          className="danger-button"
+                          disabled={purging}
+                          onClick={() => void handlePurge(s.id)}
+                        >
+                          {purging ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          disabled={purging}
+                          onClick={() => setConfirmId(null)}
+                        >
+                          Cancel
+                        </button>
                       </span>
+                    ) : (
                       <button
                         type="button"
                         className="danger-button"
-                        disabled={purging}
-                        onClick={() => void handlePurge(s.id)}
+                        onClick={() => setConfirmId(s.id)}
                       >
-                        {purging ? 'Deleting…' : 'Yes, delete'}
+                        Purge
                       </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={purging}
-                        onClick={() => setConfirmId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => setConfirmId(s.id)}
-                    >
-                      Purge
-                    </button>
-                  )}
-                </td>
-              </tr>
+                    )}
+                  </td>
+                </tr>
+                {expandedStatementId === s.id ? (
+                  <tr className="statement-detail-row" aria-label="Statement details">
+                    {/* colSpan must match the 7 header columns (Account, Filename, Uploaded, Size, Inserted, Skipped, Actions) */}
+                    <td colSpan={7} className="statement-detail-cell">
+                      <dl className="statement-detail-dl">
+                        <div>
+                          <dt>Statement ID</dt>
+                          <dd>{s.id}</dd>
+                        </div>
+                        <div>
+                          <dt>SHA-256</dt>
+                          <dd>{s.sha256}</dd>
+                        </div>
+                        <div>
+                          <dt>Account ID</dt>
+                          <dd>{s.account_id}</dd>
+                        </div>
+                      </dl>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>

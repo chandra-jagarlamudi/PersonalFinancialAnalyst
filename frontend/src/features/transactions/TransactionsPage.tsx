@@ -8,7 +8,7 @@ import {
   type Category,
   type RuleProposal,
   type Transaction,
-} from './api'
+} from '@/api'
 
 function formatAmount(amount: string): string {
   const n = parseFloat(amount)
