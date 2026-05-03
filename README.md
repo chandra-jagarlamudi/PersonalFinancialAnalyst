@@ -15,24 +15,6 @@ This project is designed to solve that problem in layers:
 3. **Make the ledger useful.** Support categories, budgets, recurring-spend detection, and future anomaly detection.
 4. **Enable higher-level analysis safely.** Add an AI assistant on top of structured tools instead of letting an LLM guess from untrusted raw text.
 
-## Current state of the repository
-
-The repo is ahead of the old README in a few areas. Today it contains:
-
-| Area | Status | Notes |
-|---|---|---|
-| Docker Compose local stack | Implemented | Starts PostgreSQL and the FastAPI backend, both bound to localhost by default. |
-| Backend API | Implemented | FastAPI service with schema bootstrap on startup. |
-| CSV statement ingestion | Implemented | Multipart upload with validation, file hashing, account scoping, and transaction dedupe. |
-| Raw statement storage | Implemented | Files are stored on disk using content-addressed paths under the configured upload directory. |
-| Statement purge | Implemented | Removes DB metadata and attempts to delete the stored file. |
-| Categories and monthly budgets | Implemented | Category CRUD, budget upsert/list, budget status, and history-based suggestions. |
-| Categorization rules | Implemented | Regex-based rules, retroactive apply option, manual correction, and rule proposal dry runs. |
-| Recurring spend detection | Implemented | Deterministic monthly cadence detection from ledger transactions. |
-| Frontend UI | Slice 1 shell + slices 10–13 UI | Authenticated shell with statements queue uploads, anomalies review, streaming chat, and transaction drill-down from anomaly links. Charts/budget editors remain PRD follow-ups. |
-| Agent/chat workflows | Implemented | Embedded MCP-shaped read tools + deterministic streaming planner (`POST /chat/stream`). Aligns with GitHub slice 11 / issue #12. |
-| PDF statement ingestion | Partial | Targeted parser scaffold at `pdf_cc.py`; synchronous auto-ingest still returns **501** when the parser reports ingest-ready rows. **Queued PDF jobs** (`POST /ingest/jobs/pdf`) record `needs_review` when confidence is low (GitHub slice 13 / issue #14). |
-
 ## Product direction
 
 The intended product is a single-user, self-hosted finance application that runs locally by default. A user should be able to upload account statements, build a normalized ledger, manage categories and budgets, inspect recurring spending, and eventually ask an embedded AI agent questions such as why a month was expensive or which subscriptions are driving recurring costs.
