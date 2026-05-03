@@ -73,6 +73,18 @@ export function listTransactions(params?: {
   return request<TransactionListResponse>(`/transactions${qs ? `?${qs}` : ''}`)
 }
 
+export type CategorySuggestion = {
+  category_id: string | null
+  slug: string | null
+  error: string | null
+}
+
+export function suggestTransactionCategory(txId: string): Promise<CategorySuggestion> {
+  return request<CategorySuggestion>(`/transactions/${txId}/suggest-category`, {
+    method: 'POST',
+  })
+}
+
 export function updateTransactionCategory(txId: string, categoryId: string): Promise<void> {
   return request<void>(`/transactions/${txId}/category`, {
     method: 'PUT',

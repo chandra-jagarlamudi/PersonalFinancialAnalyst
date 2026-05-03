@@ -199,9 +199,15 @@ export default function StatementsPage() {
   return (
     <section className="panel">
       <h2>Statements</h2>
+      <p className="statements-page-lede">
+        Queue statement files to an account, then review uploaded history in the table below.
+      </p>
 
-      <form className="account-setup-card" onSubmit={event => void handleCreateAccount(event)}>
-        <h3>{accountOptions.length === 0 ? 'Add your first account' : 'Add another account'}</h3>
+      <details className="account-setup-details" defaultOpen={accountOptions.length === 0}>
+        <summary className="account-setup-summary">
+          {accountOptions.length === 0 ? 'Set up your first account' : 'Add account'}
+        </summary>
+        <form className="account-setup-card" onSubmit={event => void handleCreateAccount(event)}>
         <p className="account-setup-lede">
           {accountOptions.length === 0
             ? 'Imports are tied to an account. Create an institution and account here, then you can queue CSV or PDF files below.'
@@ -257,6 +263,7 @@ export default function StatementsPage() {
           {setupBusy ? 'Creating…' : 'Create and continue'}
         </button>
       </form>
+      </details>
 
       <div className="import-actions">
         <h3>Queue imports</h3>

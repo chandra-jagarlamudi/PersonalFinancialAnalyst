@@ -135,6 +135,22 @@ CREATE TABLE IF NOT EXISTS categories (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+INSERT INTO categories (slug, name) VALUES
+  ('groceries', 'Groceries'),
+  ('dining', 'Dining & restaurants'),
+  ('transport', 'Transport'),
+  ('utilities', 'Utilities'),
+  ('income', 'Income'),
+  ('transfers', 'Transfers'),
+  ('healthcare', 'Healthcare'),
+  ('entertainment', 'Entertainment'),
+  ('shopping', 'Shopping'),
+  ('fees', 'Fees & charges'),
+  ('housing', 'Housing'),
+  ('travel', 'Travel'),
+  ('uncategorized', 'Uncategorized')
+ON CONFLICT (slug) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS budgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,

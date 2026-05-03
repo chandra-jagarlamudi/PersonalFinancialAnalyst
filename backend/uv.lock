@@ -434,6 +434,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pypdf" },
     { name = "python-multipart" },
@@ -443,7 +444,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "fpdf2" },
-    { name = "httpx" },
     { name = "langsmith" },
     { name = "pytest" },
 ]
@@ -452,7 +452,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "fpdf2", marker = "extra == 'dev'", specifier = ">=2.8" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "langsmith", marker = "extra == 'dev'", specifier = ">=0.3,<1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pypdf", specifier = ">=5" },

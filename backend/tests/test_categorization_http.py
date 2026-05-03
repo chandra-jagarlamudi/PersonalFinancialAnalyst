@@ -139,3 +139,44 @@ def test_update_category_reflected_in_list(client, sample_account_id, upload_dir
     coffee_updated = next(tx for tx in updated["items"] if tx["id"] == coffee_tx["id"])
     assert coffee_updated["category_id"] == cid
     assert coffee_updated["category_name"] == "Coffee"
+
+
+# ---------------------------------------------------------------------------
+# Test 6: POST /transactions/{id}/suggest-category (mocked LLM)
+# ---------------------------------------------------------------------------
+
+
+def test_suggest_category_returns_match(monkeypatch, client, sample_account_id, upload_dir):
+    import pfa.categorization_api as capi
+
+    _ingest(client, sample_account_id)
+    cid = _create_category(client, "coffee", "Coffee")
+
+    all_body = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    tx_id = all_body["items"][0]["id"]
+
+    monkeypatch.setattr(capi, "suggest_category_slug", lambda **kw: ("coffee", None))
+
+    r = client.post(f"/transactions/{tx_id}/suggest-category")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["error"] is None
+    assert body["slug"] == "coffee"
+    assert body["category_id"] == cid
+
+
+def test_suggest_category_without_api_key_returns_error_body(
+    monkeypatch, client, sample_account_id, upload_dir
+):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    _ingest(client, sample_account_id)
+    all_body = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    tx_id = all_body["items"][0]["id"]
+
+    r = client.post(f"/transactions/{tx_id}/suggest-category")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["category_id"] is None
+    assert body["slug"] is None
+    assert body["error"] is not None

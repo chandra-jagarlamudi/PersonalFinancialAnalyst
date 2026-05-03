@@ -4,6 +4,7 @@ import {
   listCategories,
   listTransactions,
   proposeRule,
+  suggestTransactionCategory,
   updateTransactionCategory,
   type Category,
   type RuleProposal,
@@ -103,6 +104,7 @@ function TransactionRow({
   const [preview, setPreview] = useState<RuleProposal | null>(null)
   const [rulePriority, setRulePriority] = useState(100)
   const [creatingRule, setCreatingRule] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
 
   function handleRowClick() {
     setExpanded((e) => !e)
@@ -110,6 +112,26 @@ function TransactionRow({
     setSuccess(null)
     setEditor({ phase: 'category' })
     setSelectedCategory(tx.category_id ?? '')
+  }
+
+  async function handleSuggestCategory() {
+    setSuggesting(true)
+    setError(null)
+    try {
+      const result = await suggestTransactionCategory(tx.id)
+      if (result.error || !result.category_id) {
+        setError(result.error ?? 'No suggestion available')
+        return
+      }
+      setSelectedCategory(result.category_id)
+      setSuccess(
+        result.slug ? `Suggested: ${result.slug.replace(/-/g, ' ')} — pick Save correction to apply.` : 'Suggestion ready.',
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Suggestion failed')
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   async function handleSaveCategory() {
@@ -233,6 +255,17 @@ function TransactionRow({
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void handleSuggestCategory()
+                      }}
+                      disabled={suggesting || categories.length === 0}
+                    >
+                      {suggesting ? 'Suggesting…' : 'Suggest with AI'}
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {

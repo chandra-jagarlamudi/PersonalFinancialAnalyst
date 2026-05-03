@@ -115,7 +115,7 @@ describe('StatementsPage', () => {
       { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
-    expect(await screen.findByText(/add your first account/i)).toBeInTheDocument()
+    expect(await screen.findByText(/set up your first account/i)).toBeInTheDocument()
     expect(await screen.findByText(/no statements recorded yet/i)).toBeInTheDocument()
   })
 
@@ -142,7 +142,7 @@ describe('StatementsPage', () => {
       { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
-    await screen.findByRole('heading', { name: /add your first account/i })
+    await screen.findByText(/set up your first account/i)
 
     fireEvent.change(screen.getByPlaceholderText(/first bank/i), {
       target: { value: 'My Bank' },
@@ -153,7 +153,7 @@ describe('StatementsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create and continue/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /add another account/i })).toBeInTheDocument()
+      expect(screen.getByText(/^add account$/i)).toBeInTheDocument()
     })
 
     const postUrls = mock.mock.calls.filter(args => args[1]?.method === 'POST').map(c => String(c[0]))
@@ -164,7 +164,7 @@ describe('StatementsPage', () => {
     expect(fileInput).not.toBeDisabled()
   })
 
-  it('shows add another account heading when accounts already exist', async () => {
+  it('shows add account control when accounts already exist', async () => {
     mockFetch([
       { body: [] },
       { body: [ACCOUNT] },
@@ -172,7 +172,7 @@ describe('StatementsPage', () => {
       { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
-    expect(await screen.findByRole('heading', { name: /add another account/i })).toBeInTheDocument()
+    expect(await screen.findByText(/^add account$/i)).toBeInTheDocument()
   })
 
   it('expands a statement row on click to show identifiers, and collapses on second click', async () => {

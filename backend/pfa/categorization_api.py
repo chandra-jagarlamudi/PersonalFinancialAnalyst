@@ -12,8 +12,10 @@ from fastapi import APIRouter, HTTPException, Query
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
+from pfa.budget_service import list_categories
 from pfa.categorization import apply_rules_retroactively
 from pfa.db import connect
+from pfa.llm_category_suggest import suggest_category_slug
 
 router = APIRouter(tags=["categorization"])
 
@@ -59,6 +61,12 @@ class TransactionListItem(BaseModel):
 class TransactionListPage(BaseModel):
     items: list[TransactionListItem]
     total: int
+
+
+class CategorySuggestionOut(BaseModel):
+    category_id: UUID | None
+    slug: str | None
+    error: str | None
 
 
 TransactionSort = Literal[
@@ -186,6 +194,33 @@ def update_transaction_category(transaction_id: UUID, body: CategoryPatch):
         conn.commit()
 
     return TransactionOut(id=result[0], category_id=result[1])
+
+
+@router.post("/transactions/{transaction_id}/suggest-category", response_model=CategorySuggestionOut)
+def suggest_category_for_transaction(transaction_id: UUID):
+    with connect() as conn:
+        tx = conn.execute(
+            """
+            SELECT description_raw, description_normalized
+            FROM transactions WHERE id = %s
+            """,
+            (str(transaction_id),),
+        ).fetchone()
+        if tx is None:
+            raise HTTPException(status_code=404, detail="transaction not found")
+        cats = list_categories(conn)
+
+    slug, err = suggest_category_slug(
+        description_raw=tx[0],
+        description_normalized=tx[1],
+        categories=cats,
+    )
+    if err or not slug:
+        return CategorySuggestionOut(category_id=None, slug=None, error=err or "no suggestion")
+    match = next((c for c in cats if c["slug"] == slug), None)
+    if match is None:
+        return CategorySuggestionOut(category_id=None, slug=None, error="slug not found after validation")
+    return CategorySuggestionOut(category_id=UUID(str(match["id"])), slug=slug, error=None)
 
 
 @router.post("/transactions/{transaction_id}/rule-proposal", response_model=RuleProposalOut)
