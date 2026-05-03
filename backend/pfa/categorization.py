@@ -5,6 +5,21 @@ from __future__ import annotations
 import psycopg
 
 
+def category_id_from_rules(conn: psycopg.Connection, description_normalized: str) -> str | None:
+    """Return first matching rule category_id for this description, or None."""
+    row = conn.execute(
+        """
+        SELECT r.category_id
+        FROM categorization_rules r
+        WHERE %s ~* r.pattern
+        ORDER BY r.priority ASC, r.created_at ASC
+        LIMIT 1
+        """,
+        (description_normalized,),
+    ).fetchone()
+    return str(row[0]) if row else None
+
+
 def apply_rules(conn: psycopg.Connection, transaction_id: str) -> str | None:
     row = conn.execute(
         """

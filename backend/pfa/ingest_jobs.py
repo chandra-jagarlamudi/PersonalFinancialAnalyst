@@ -258,6 +258,7 @@ def process_csv_job(job_id: UUID) -> None:
                 account_id,
                 rows,
                 source_statement_id=statement_id,
+                llm_if_unmatched=False,
             )
             update_statement_counts(conn, statement_id, inserted, skipped)
             _mark_step(
@@ -445,6 +446,7 @@ def process_pdf_job(job_id: UUID) -> None:
                 account_id,
                 rows,
                 source_statement_id=statement_id,
+                llm_if_unmatched=True,
             )
             update_statement_counts(conn, statement_id, inserted, skipped)
             _mark_step(

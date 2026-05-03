@@ -9,7 +9,9 @@ from uuid import UUID
 
 import psycopg
 
-from pfa.categorization import apply_rules
+from pfa.budget_service import list_categories
+from pfa.categorization import apply_rules, category_id_from_rules
+from pfa.llm_category_suggest import suggest_category_slug
 from pfa.csv_parse import ParsedCsvRow
 from pfa.dedupe import normalize_description, transaction_fingerprint
 
@@ -31,6 +33,32 @@ def normalize_parsed_row_for_db(row: ParsedCsvRow) -> ParsedCsvRow:
     )
 
 
+def resolve_initial_category_id(
+    conn: psycopg.Connection,
+    *,
+    description_raw: str,
+    description_normalized: str,
+    llm_if_unmatched: bool,
+) -> str | None:
+    rid = category_id_from_rules(conn, description_normalized)
+    if rid is not None:
+        return rid
+    if not llm_if_unmatched:
+        return None
+    cats = list_categories(conn)
+    slug, err = suggest_category_slug(
+        description_raw=description_raw,
+        description_normalized=description_normalized,
+        categories=cats,
+    )
+    if err or not slug:
+        return None
+    for c in cats:
+        if c["slug"] == slug:
+            return str(c["id"])
+    return None
+
+
 def account_exists(conn: psycopg.Connection, account_id: UUID) -> bool:
     row = conn.execute(
         "SELECT 1 FROM accounts WHERE id = %s LIMIT 1",
@@ -44,6 +72,8 @@ def ingest_rows(
     account_id: UUID,
     rows: list[ParsedCsvRow],
     source_statement_id: UUID | None = None,
+    *,
+    llm_if_unmatched: bool = False,
 ) -> tuple[int, int]:
     inserted = 0
     skipped = 0
@@ -51,6 +81,12 @@ def ingest_rows(
         for row in rows:
             row = normalize_parsed_row_for_db(row)
             desc_norm = normalize_description(row.description_raw)
+            cat_id = resolve_initial_category_id(
+                conn,
+                description_raw=row.description_raw,
+                description_normalized=desc_norm,
+                llm_if_unmatched=llm_if_unmatched,
+            )
             fp = transaction_fingerprint(
                 account_id,
                 row.transaction_date,
@@ -62,8 +98,8 @@ def ingest_rows(
                 INSERT INTO transactions (
                   account_id, transaction_date, posted_date, amount, currency,
                   description_raw, description_normalized, dedupe_fingerprint,
-                  source_statement_id
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                  source_statement_id, category_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (dedupe_fingerprint) DO NOTHING
                 RETURNING id
                 """,
@@ -77,6 +113,7 @@ def ingest_rows(
                     desc_norm,
                     fp,
                     str(source_statement_id) if source_statement_id else None,
+                    cat_id,
                 ),
             ).fetchone()
             if result is not None:

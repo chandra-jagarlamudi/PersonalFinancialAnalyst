@@ -145,7 +145,9 @@ def ingest_csv(
             file_path,
             len(raw),
         )
-        inserted, skipped = ingest_rows(conn, account_id, rows, source_statement_id=stmt_id)
+        inserted, skipped = ingest_rows(
+            conn, account_id, rows, source_statement_id=stmt_id, llm_if_unmatched=False
+        )
         update_statement_counts(conn, stmt_id, inserted, skipped)
         conn.commit()
 
@@ -227,7 +229,9 @@ def ingest_pdf(
             file_path,
             len(raw),
         )
-        inserted, skipped = ingest_rows(conn, account_id, rows, source_statement_id=stmt_id)
+        inserted, skipped = ingest_rows(
+            conn, account_id, rows, source_statement_id=stmt_id, llm_if_unmatched=True
+        )
         update_statement_counts(conn, stmt_id, inserted, skipped)
         conn.commit()
 

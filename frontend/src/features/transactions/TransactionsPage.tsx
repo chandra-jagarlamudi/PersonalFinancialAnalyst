@@ -212,10 +212,13 @@ function TransactionRow({
         <td className="txn-num">{formatAmount(tx.amount)}</td>
         <td className="txn-desc">{tx.description_normalized}</td>
         <td className="txn-cat">{tx.category_name ?? <em className="txn-uncat">Uncategorized</em>}</td>
+        <td className="txn-source" title={tx.source_statement_filename ?? undefined}>
+          {tx.source_statement_filename ?? '—'}
+        </td>
       </tr>
       {expanded && (
         <tr className="txn-expand-row">
-          <td colSpan={4} className="txn-row-detail">
+          <td colSpan={5} className="txn-row-detail">
             {error && <p className="error-banner">{error}</p>}
             {success && <p className="success-banner">{success}</p>}
 
@@ -516,6 +519,9 @@ export default function TransactionsPage() {
                   <SortHeader label="Amount" column="amount" sort={sort} onSort={handleSortColumn} />
                   <SortHeader label="Description" column="description" sort={sort} onSort={handleSortColumn} />
                   <SortHeader label="Category" column="category" sort={sort} onSort={handleSortColumn} />
+                  <th scope="col" className="txn-th txn-th-source">
+                    Source
+                  </th>
                 </tr>
               </thead>
               <tbody>

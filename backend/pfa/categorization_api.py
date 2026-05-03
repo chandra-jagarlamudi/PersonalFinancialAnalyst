@@ -55,6 +55,7 @@ class TransactionListItem(BaseModel):
     description_normalized: str
     category_id: UUID | None
     category_name: str | None
+    source_statement_filename: str | None
     created_at: datetime.datetime
 
 
@@ -283,15 +284,18 @@ def list_transactions(
         SELECT COUNT(*) AS cnt
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
+        LEFT JOIN statements s ON s.id = t.source_statement_id
         {where_clause}
     """
 
     data_sql = f"""
         SELECT t.id, t.account_id, t.transaction_date, t.amount,
                t.description_raw, t.description_normalized,
-               t.category_id, c.name AS category_name, t.created_at
+               t.category_id, c.name AS category_name, t.created_at,
+               s.filename AS source_statement_filename
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
+        LEFT JOIN statements s ON s.id = t.source_statement_id
         {where_clause}
         ORDER BY {order_sql}
         LIMIT %s OFFSET %s

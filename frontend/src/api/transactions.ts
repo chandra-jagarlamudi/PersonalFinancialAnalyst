@@ -9,6 +9,7 @@ export type Transaction = {
   description_normalized: string
   category_id: string | null
   category_name: string | null
+  source_statement_filename: string | null
   created_at: string
 }
 
