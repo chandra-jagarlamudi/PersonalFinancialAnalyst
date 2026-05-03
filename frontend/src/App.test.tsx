@@ -70,4 +70,23 @@ describe('App', () => {
       )
     })
   })
+
+  it('navigates to the Statements view when the Statements nav link is used', async () => {
+    mockFetchSequence([
+      { body: { authenticated: true, username: 'admin' } },
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: [{ id: 't1', code: 'checking', label: 'Checking', sort_order: 10 }] },
+    ])
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /authenticated app shell/i })
+    fireEvent.click(screen.getByRole('link', { name: /^statements$/i }))
+
+    expect(await screen.findByRole('heading', { name: /^statements$/i })).toBeInTheDocument()
+    expect(await screen.findByText(/no statements recorded yet/i)).toBeInTheDocument()
+  })
 })

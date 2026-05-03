@@ -3,9 +3,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import StatementsPage from './StatementsPage'
 
-// Fetch mock order: GET /api/statements, GET /api/accounts, GET /api/institutions
+// Fetch mock order: GET /api/statements, then parallel GET /api/accounts, /api/institutions, /api/account-types
+const ACCOUNT_TYPES = [
+  { id: 'type-checking', code: 'checking', label: 'Checking', sort_order: 10 },
+  { id: 'type-savings', code: 'savings', label: 'Savings', sort_order: 20 },
+]
 const INSTITUTION = { id: 'inst-1', name: 'First Bank' }
-const ACCOUNT = { id: 'acct-1', institution_id: 'inst-1', name: 'Checking', currency: 'USD' }
+const ACCOUNT = {
+  id: 'acct-1',
+  institution_id: 'inst-1',
+  account_type_id: 'type-checking',
+  account_type_label: 'Checking',
+  name: 'Checking',
+  currency: 'USD',
+}
 const STATEMENT = {
   id: 'stmt-1',
   account_id: 'acct-1',
@@ -91,7 +102,6 @@ describe('StatementsPage', () => {
   })
 
   it('shows loading state while fetching', async () => {
-    // Never resolves so the loading indicator stays visible.
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     render(<StatementsPage />)
     expect(screen.getByText(/loading statements/i)).toBeInTheDocument()
@@ -99,12 +109,70 @@ describe('StatementsPage', () => {
 
   it('shows empty state when there are no statements', async () => {
     mockFetch([
-      { body: [] }, // listStatements
-      { body: [] }, // listAccounts
-      { body: [] }, // listInstitutions
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
+    expect(await screen.findByText(/add your first account/i)).toBeInTheDocument()
     expect(await screen.findByText(/no statements recorded yet/i)).toBeInTheDocument()
+  })
+
+  it('creates institution and account then enables import controls', async () => {
+    const NEW_INST = { id: 'inst-new', name: 'My Bank' }
+    const NEW_ACCT = {
+      id: 'acct-new',
+      institution_id: 'inst-new',
+      account_type_id: 'type-checking',
+      account_type_label: 'Checking',
+      name: 'Checking',
+      currency: 'USD',
+    }
+    const mock = mockFetch([
+      { body: [] },
+      { body: [] },
+      { body: [] },
+      { body: ACCOUNT_TYPES },
+      { body: NEW_INST },
+      { body: NEW_ACCT },
+      { body: [] },
+      { body: [NEW_ACCT] },
+      { body: [NEW_INST] },
+      { body: ACCOUNT_TYPES },
+    ])
+    render(<StatementsPage />)
+    await screen.findByRole('heading', { name: /add your first account/i })
+
+    fireEvent.change(screen.getByPlaceholderText(/first bank/i), {
+      target: { value: 'My Bank' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(/primary checking/i), {
+      target: { value: 'Checking' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create and continue/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /add another account/i })).toBeInTheDocument()
+    })
+
+    const postUrls = mock.mock.calls.filter(args => args[1]?.method === 'POST').map(c => String(c[0]))
+    expect(postUrls.some(u => u.includes('/api/institutions'))).toBe(true)
+    expect(postUrls.some(u => u.includes('/api/accounts'))).toBe(true)
+
+    const fileInput = screen.getByLabelText(/statement file for queued import/i)
+    expect(fileInput).not.toBeDisabled()
+  })
+
+  it('shows add another account heading when accounts already exist', async () => {
+    mockFetch([
+      { body: [] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
+    ])
+    render(<StatementsPage />)
+    expect(await screen.findByRole('heading', { name: /add another account/i })).toBeInTheDocument()
   })
 
   it('expands a statement row on click to show identifiers, and collapses on second click', async () => {
@@ -112,6 +180,7 @@ describe('StatementsPage', () => {
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
     await screen.findByText('jan.csv')
@@ -126,20 +195,18 @@ describe('StatementsPage', () => {
 
   it('renders the statement list with institution and account name', async () => {
     mockFetch([
-      { body: [STATEMENT] },    // listStatements
-      { body: [ACCOUNT] },      // listAccounts
-      { body: [INSTITUTION] },  // listInstitutions
+      { body: [STATEMENT] },
+      { body: [ACCOUNT] },
+      { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
 
     const table = await screen.findByRole('table')
-    expect(within(table).getByText('First Bank — Checking')).toBeInTheDocument()
-    // Filename appears.
+    expect(within(table).getByText('First Bank — Checking (Checking)')).toBeInTheDocument()
     expect(screen.getByText('jan.csv')).toBeInTheDocument()
-    // Inserted / skipped counts.
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
-    // Purge button is visible.
     expect(screen.getByRole('button', { name: /purge/i })).toBeInTheDocument()
   })
 
@@ -147,18 +214,20 @@ describe('StatementsPage', () => {
     mockFetch([
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
-      { body: [] }, // no institutions
+      { body: [] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
     const table = await screen.findByRole('table')
-    expect(within(table).getByText('Checking')).toBeInTheDocument()
+    expect(within(table).getByText('Checking (Checking)')).toBeInTheDocument()
   })
 
   it('falls back to account_id when account is not in the accounts list', async () => {
     mockFetch([
       { body: [STATEMENT] },
-      { body: [] }, // listAccounts — empty
-      { body: [] }, // listInstitutions
+      { body: [] },
+      { body: [] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
     expect(await screen.findByText('acct-1')).toBeInTheDocument()
@@ -169,6 +238,7 @@ describe('StatementsPage', () => {
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
 
@@ -184,6 +254,7 @@ describe('StatementsPage', () => {
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
 
@@ -195,7 +266,6 @@ describe('StatementsPage', () => {
     await waitFor(() => {
       expect(screen.queryByText(/are you sure/i)).not.toBeInTheDocument()
     })
-    // Row should still be present.
     expect(screen.getByText('jan.csv')).toBeInTheDocument()
   })
 
@@ -204,7 +274,8 @@ describe('StatementsPage', () => {
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
-      { status: 204, body: undefined }, // DELETE
+      { body: ACCOUNT_TYPES },
+      { status: 204, body: undefined },
     ])
     render(<StatementsPage />)
 
@@ -220,7 +291,8 @@ describe('StatementsPage', () => {
       { body: [STATEMENT] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
-      { ok: false, status: 500, body: { detail: 'internal server error' } }, // DELETE
+      { body: ACCOUNT_TYPES },
+      { ok: false, status: 500, body: { detail: 'internal server error' } },
     ])
     render(<StatementsPage />)
 
@@ -228,7 +300,6 @@ describe('StatementsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /yes, delete/i }))
 
     expect(await screen.findByText(/internal server error/i)).toBeInTheDocument()
-    // Row should still be present.
     expect(screen.getByText('jan.csv')).toBeInTheDocument()
   })
 
@@ -236,24 +307,22 @@ describe('StatementsPage', () => {
     const mock = vi.fn().mockRejectedValue(new Error('network failure'))
     vi.stubGlobal('fetch', mock)
     render(<StatementsPage />)
-    // The banner renders the Error's message directly; the 'Failed to load statements'
-    // fallback only fires for non-Error throws.
     expect(await screen.findByText(/network failure/i)).toBeInTheDocument()
     expect(screen.getByText(/network failure/i).closest('p')).toHaveClass('error-banner')
   })
 
   it('posts CSV to ingest job endpoint with FormData then reloads statements', async () => {
-    // Fetch order: initial load (statements, accounts, institutions), POST enqueue,
-    // pollIngestJob → GET /api/ingest/jobs/:id until terminal, then load() (3 GETs).
     const mock = mockFetch([
       { body: [] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
       { status: 202, body: INGEST_JOB_CSV },
       { body: INGEST_JOB_CSV },
       { body: [STATEMENT_AFTER_CSV] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
     await screen.findByText(/queue imports/i)
@@ -280,16 +349,17 @@ describe('StatementsPage', () => {
   })
 
   it('posts PDF to ingest job endpoint with FormData then reloads statements', async () => {
-    // Same fetch order as CSV case; terminal status here is needs_review.
     const mock = mockFetch([
       { body: [] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
       { status: 202, body: INGEST_JOB_PDF },
       { body: INGEST_JOB_PDF },
       { body: [STATEMENT_AFTER_PDF] },
       { body: [ACCOUNT] },
       { body: [INSTITUTION] },
+      { body: ACCOUNT_TYPES },
     ])
     render(<StatementsPage />)
     await screen.findByText(/queue imports/i)
@@ -315,4 +385,3 @@ describe('StatementsPage', () => {
     expect((fd.get('file') as File).name).toBe('stmt.pdf')
   })
 })
-

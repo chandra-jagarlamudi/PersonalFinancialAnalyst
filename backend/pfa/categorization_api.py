@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 import psycopg
@@ -56,6 +56,36 @@ class TransactionListItem(BaseModel):
     created_at: datetime.datetime
 
 
+class TransactionListPage(BaseModel):
+    items: list[TransactionListItem]
+    total: int
+
+
+TransactionSort = Literal[
+    "date_desc",
+    "date_asc",
+    "amount_desc",
+    "amount_asc",
+    "description_asc",
+    "description_desc",
+    "category_asc",
+    "category_desc",
+]
+
+
+def _order_by_clause(sort: TransactionSort) -> str:
+    return {
+        "date_desc": "t.transaction_date DESC, t.created_at DESC",
+        "date_asc": "t.transaction_date ASC, t.created_at ASC",
+        "amount_desc": "t.amount DESC",
+        "amount_asc": "t.amount ASC",
+        "description_asc": "t.description_normalized ASC",
+        "description_desc": "t.description_normalized DESC",
+        "category_asc": "COALESCE(c.name, '') ASC",
+        "category_desc": "COALESCE(c.name, '') DESC",
+    }[sort]
+
+
 class RuleProposalIn(BaseModel):
     pattern: str = Field(min_length=1, max_length=500)
     apply_retroactively: bool = False
@@ -71,6 +101,7 @@ def _validate_postgres_regex(conn: psycopg.Connection, pattern: str) -> None:
     try:
         conn.execute("SELECT '' ~* %s", (pattern,))
     except psycopg.errors.InvalidRegularExpression as exc:
+        conn.rollback()
         raise HTTPException(status_code=422, detail=f"invalid regex: {exc}") from exc
 
 
@@ -183,11 +214,14 @@ def propose_rule(transaction_id: UUID, body: RuleProposalIn):
     )
 
 
-@router.get("/transactions", response_model=list[TransactionListItem])
+@router.get("/transactions", response_model=TransactionListPage)
 def list_transactions(
     account_id: Annotated[UUID | None, Query()] = None,
     uncategorized: Annotated[bool, Query()] = False,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    sort: Annotated[TransactionSort, Query()] = "date_desc",
 ):
     conditions = []
     params: list = []
@@ -199,23 +233,44 @@ def list_transactions(
     if uncategorized:
         conditions.append("t.category_id IS NULL")
 
+    if q is not None and (stripped := q.strip()):
+        conditions.append(
+            "(t.description_normalized ILIKE %s OR t.description_raw ILIKE %s)"
+        )
+        term = f"%{stripped}%"
+        params.extend([term, term])
+
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    sql = f"""
+    order_sql = _order_by_clause(sort)
+
+    count_sql = f"""
+        SELECT COUNT(*) AS cnt
+        FROM transactions t
+        LEFT JOIN categories c ON c.id = t.category_id
+        {where_clause}
+    """
+
+    data_sql = f"""
         SELECT t.id, t.account_id, t.transaction_date, t.amount,
                t.description_raw, t.description_normalized,
                t.category_id, c.name AS category_name, t.created_at
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
         {where_clause}
-        ORDER BY t.transaction_date DESC, t.created_at DESC
-        LIMIT %s
+        ORDER BY {order_sql}
+        LIMIT %s OFFSET %s
     """
-    params.append(limit)
+
+    data_params = [*params, limit, offset]
 
     with connect() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(sql, params)
+            cur.execute(count_sql, params)
+            total_row = cur.fetchone()
+            total = int(total_row["cnt"]) if total_row else 0
+
+            cur.execute(data_sql, data_params)
             rows = [dict(r) for r in cur.fetchall()]
 
-    return rows
+    return TransactionListPage(items=rows, total=total)

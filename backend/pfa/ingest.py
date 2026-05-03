@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
 
@@ -11,6 +12,23 @@ import psycopg
 from pfa.categorization import apply_rules
 from pfa.csv_parse import ParsedCsvRow
 from pfa.dedupe import normalize_description, transaction_fingerprint
+
+# Matches transactions.amount NUMERIC(18, 4) and transaction_fingerprint amount token.
+_LEDGER_AMOUNT_QUANT = Decimal("0.0001")
+
+
+def normalize_parsed_row_for_db(row: ParsedCsvRow) -> ParsedCsvRow:
+    """Coerce parsed fields to canonical shapes before INSERT (DATE stays calendar date)."""
+    cur = (row.currency or "").strip().upper() or "USD"
+    amt = row.amount.quantize(_LEDGER_AMOUNT_QUANT)
+    desc = row.description_raw.strip()
+    return ParsedCsvRow(
+        transaction_date=row.transaction_date,
+        posted_date=row.posted_date,
+        amount=amt,
+        currency=cur,
+        description_raw=desc,
+    )
 
 
 def account_exists(conn: psycopg.Connection, account_id: UUID) -> bool:
@@ -31,6 +49,7 @@ def ingest_rows(
     skipped = 0
     with conn.cursor() as cur:
         for row in rows:
+            row = normalize_parsed_row_for_db(row)
             desc_norm = normalize_description(row.description_raw)
             fp = transaction_fingerprint(
                 account_id,

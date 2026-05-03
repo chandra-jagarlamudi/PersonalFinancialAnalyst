@@ -8,7 +8,6 @@ from decimal import Decimal
 from uuid import UUID
 
 import psycopg
-from psycopg import errors as pg_errors
 from psycopg.rows import dict_row
 
 from pfa.budget_math import linear_project_month_spend, month_date_range
@@ -58,16 +57,13 @@ def create_category(conn: psycopg.Connection, slug: str, name: str) -> UUID:
     name = name.strip()
     if not name:
         raise BudgetServiceError("name is required")
-    try:
-        row = conn.execute(
-            "INSERT INTO categories (slug, name) VALUES (%s, %s) RETURNING id",
-            (slug.strip(), name),
-        ).fetchone()
-    except pg_errors.UniqueViolation as e:
-        conn.rollback()
-        raise BudgetServiceError("category slug already exists") from e
+    row = conn.execute(
+        "INSERT INTO categories (slug, name) VALUES (%s, %s) ON CONFLICT (slug) DO NOTHING RETURNING id",
+        (slug.strip(), name),
+    ).fetchone()
+    if row is None:
+        raise BudgetServiceError("category slug already exists")
     conn.commit()
-    assert row is not None
     return UUID(str(row[0]))
 
 

@@ -7,6 +7,15 @@ import pytest
 from pfa.csv_parse import CsvParseError, parse_csv_bytes
 
 
+def test_parse_accepts_us_slash_dates():
+    body = (
+        "transaction_date,amount,description\n"
+        "03/01/2025,-12.34,GROCERY STORE\n"
+    ).encode()
+    rows = parse_csv_bytes(body)
+    assert rows[0].transaction_date.isoformat() == "2025-03-01"
+
+
 def test_parse_minimal_headers_iso_dates():
     body = (
         "transaction_date,amount,description\n"
@@ -50,3 +59,14 @@ def test_parse_requires_core_columns():
     body = "transaction_date,description\n2025-03-01,X\n".encode()
     with pytest.raises(CsvParseError, match="amount"):
         parse_csv_bytes(body)
+
+
+def test_parse_accepts_date_and_memo_column_aliases():
+    body = (
+        "date,amount,memo\n"
+        "2025-03-01,-12.34,GROCERY STORE\n"
+    ).encode()
+    rows = parse_csv_bytes(body)
+    assert len(rows) == 1
+    assert rows[0].transaction_date.isoformat() == "2025-03-01"
+    assert rows[0].description_raw == "GROCERY STORE"

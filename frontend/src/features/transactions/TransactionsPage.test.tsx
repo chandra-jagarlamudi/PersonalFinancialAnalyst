@@ -21,6 +21,9 @@ const TX_1 = {
 
 const CAT_1 = { id: 'cat-1', slug: 'food', name: 'Food & Drink' }
 
+const TX_EMPTY_PAGE = { items: [] as typeof TX_1[], total: 0 }
+const TX_ONE_PAGE = { items: [TX_1], total: 1 }
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -56,7 +59,6 @@ describe('TransactionsPage', () => {
   // -------------------------------------------------------------------------
 
   it('shows a loading indicator while transactions are being fetched', async () => {
-    // Hang the transaction fetch so loading state persists
     vi.stubGlobal(
       'fetch',
       vi.fn()
@@ -66,7 +68,7 @@ describe('TransactionsPage', () => {
 
     render(<TransactionsPage />)
 
-    expect(await screen.findByRole('button', { name: 'Loading…' })).toBeInTheDocument()
+    expect(await screen.findByText(/loading transactions/i)).toBeInTheDocument()
   })
 
   // -------------------------------------------------------------------------
@@ -74,7 +76,7 @@ describe('TransactionsPage', () => {
   // -------------------------------------------------------------------------
 
   it('renders a row for each transaction', async () => {
-    mockFetchSequence([{ body: [TX_1] }, { body: [CAT_1] }])
+    mockFetchSequence([{ body: TX_ONE_PAGE }, { body: [CAT_1] }])
 
     render(<TransactionsPage />)
 
@@ -83,7 +85,7 @@ describe('TransactionsPage', () => {
   })
 
   it('shows "No transactions found." when the list is empty', async () => {
-    mockFetchSequence([{ body: [] }, { body: [] }])
+    mockFetchSequence([{ body: TX_EMPTY_PAGE }, { body: [] }])
 
     render(<TransactionsPage />)
 
@@ -96,9 +98,9 @@ describe('TransactionsPage', () => {
 
   it('re-fetches with uncategorized=true when the filter is toggled', async () => {
     const fetchMock = mockFetchSequence([
-      { body: [TX_1] }, // initial transactions
-      { body: [CAT_1] }, // categories
-      { body: [] },      // filtered re-fetch
+      { body: TX_ONE_PAGE },
+      { body: [CAT_1] },
+      { body: TX_EMPTY_PAGE },
     ])
 
     render(<TransactionsPage />)
@@ -119,7 +121,7 @@ describe('TransactionsPage', () => {
 
   it('shows a category-load error and a Retry button when /categories fails', async () => {
     mockFetchSequence([
-      { body: [TX_1] },
+      { body: TX_ONE_PAGE },
       { ok: false, status: 500, body: { detail: 'db error' } },
     ])
 
@@ -134,9 +136,9 @@ describe('TransactionsPage', () => {
 
   it('clicking Retry re-fetches categories and shows the dropdown', async () => {
     mockFetchSequence([
-      { body: [TX_1] },                                                // transactions
-      { ok: false, status: 500, body: { detail: 'db error' } },       // categories fail
-      { body: [CAT_1] },                                               // categories retry
+      { body: TX_ONE_PAGE },
+      { ok: false, status: 500, body: { detail: 'db error' } },
+      { body: [CAT_1] },
     ])
 
     render(<TransactionsPage />)
@@ -153,7 +155,7 @@ describe('TransactionsPage', () => {
   // -------------------------------------------------------------------------
 
   it('expands the correction UI when a row is clicked', async () => {
-    mockFetchSequence([{ body: [TX_1] }, { body: [CAT_1] }])
+    mockFetchSequence([{ body: TX_ONE_PAGE }, { body: [CAT_1] }])
 
     render(<TransactionsPage />)
     fireEvent.click(await screen.findByText(TX_1.description_normalized))
@@ -162,7 +164,7 @@ describe('TransactionsPage', () => {
   })
 
   it('expands the correction UI when Enter is pressed on a row', async () => {
-    mockFetchSequence([{ body: [TX_1] }, { body: [CAT_1] }])
+    mockFetchSequence([{ body: TX_ONE_PAGE }, { body: [CAT_1] }])
 
     render(<TransactionsPage />)
     await screen.findByText(TX_1.description_normalized)
@@ -175,7 +177,7 @@ describe('TransactionsPage', () => {
   })
 
   it('expands the correction UI when Space is pressed on a row', async () => {
-    mockFetchSequence([{ body: [TX_1] }, { body: [CAT_1] }])
+    mockFetchSequence([{ body: TX_ONE_PAGE }, { body: [CAT_1] }])
 
     render(<TransactionsPage />)
     await screen.findByText(TX_1.description_normalized)
@@ -192,7 +194,7 @@ describe('TransactionsPage', () => {
 
   it('saves a category correction and transitions to the rule-proposal phase', async () => {
     mockFetchSequence([
-      { body: [TX_1] },
+      { body: TX_ONE_PAGE },
       { body: [CAT_1] },
       { body: { id: TX_1.id, category_id: CAT_1.id } }, // PUT /category
     ])
@@ -220,7 +222,7 @@ describe('TransactionsPage', () => {
     }
 
     mockFetchSequence([
-      { body: [TX_1] },
+      { body: TX_ONE_PAGE },
       { body: [CAT_1] },
       { body: { id: TX_1.id, category_id: CAT_1.id } },
       { body: PROPOSAL },
@@ -251,7 +253,7 @@ describe('TransactionsPage', () => {
     }
 
     const fetchMock = mockFetchSequence([
-      { body: [TX_1] },
+      { body: TX_ONE_PAGE },
       { body: [CAT_1] },
       { body: { id: TX_1.id, category_id: CAT_1.id } },
       { body: RULE },
@@ -294,12 +296,12 @@ describe('TransactionsPage', () => {
     }
 
     const fetchMock = mockFetchSequence([
-      { body: [TX_1] },                                        // initial tx fetch
+      { body: TX_ONE_PAGE },                                        // initial tx fetch
       { body: [CAT_1] },                                       // categories
       { body: { id: TX_1.id, category_id: CAT_1.id } },       // PUT category
       { body: PROPOSAL },                                      // POST rule-proposal
       { body: RULE },                                          // POST create rule
-      { body: [] },                                            // re-fetch after retroactive rule
+      { body: TX_EMPTY_PAGE },
     ])
 
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true)

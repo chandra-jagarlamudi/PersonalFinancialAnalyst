@@ -1,3 +1,56 @@
+.account-setup-card {
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.account-setup-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: #e2e8f0;
+}
+
+.account-setup-lede {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.account-setup-fields {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.account-setup-fields label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.account-setup-fields input,
+.account-setup-fields select {
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #f8fafc;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+}
+
+.account-setup-fields input:disabled,
+.account-setup-fields select:disabled {
+  opacity: 0.65;
+}
+
+.account-setup-submit {
+  padding: 0.65rem 1.1rem;
+}
+
 .import-actions {
   margin-top: 1.25rem;
   padding-top: 1.25rem;

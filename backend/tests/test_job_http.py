@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from psycopg.rows import dict_row
 
@@ -10,10 +12,14 @@ pytestmark = pytest.mark.integration
 
 def _setup_account(client) -> str:
     institution = client.post("/institutions", json={"name": "Queue Bank"}).json()
+    checking_id = next(
+        t["id"] for t in client.get("/account-types").json() if t["code"] == "checking"
+    )
     account = client.post(
         "/accounts",
         json={
             "institution_id": institution["id"],
+            "account_type_id": checking_id,
             "name": "Checking",
             "currency": "USD",
         },
@@ -113,7 +119,7 @@ def test_duplicate_csv_job_reuses_existing_statement(client, db_conn, upload_dir
     assert transaction_count == 2
 
 
-def test_pdf_stub_job_ends_in_needs_review(client, upload_dir):
+def test_pdf_stub_job_ends_in_needs_review(client, db_conn, upload_dir):
     account_id = _setup_account(client)
     response = client.post(
         "/ingest/jobs/pdf",
@@ -133,6 +139,21 @@ def test_pdf_stub_job_ends_in_needs_review(client, upload_dir):
     assert body["error_detail"] is not None
     assert "PDF_REVIEW_REQUIRED" in body["error_detail"]
     assert body["parsed_rows"] == 0
+    assert body["statement_id"] is not None
+
+    with db_conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "SELECT id, account_id, filename, byte_size, inserted, skipped_duplicates "
+            "FROM statements WHERE id = %s",
+            (body["statement_id"],),
+        )
+        stmt = cur.fetchone()
+    assert stmt is not None
+    assert stmt["account_id"] == uuid.UUID(str(account_id))
+    assert stmt["filename"] == "stmt.pdf"
+    assert stmt["byte_size"] == len(_MINIMAL_PDF_BYTES)
+    assert stmt["inserted"] == 0
+    assert stmt["skipped_duplicates"] == 0
 
 
 def test_pdf_job_rejects_non_pdf(client):

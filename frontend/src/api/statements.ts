@@ -16,9 +16,18 @@ export type Institution = {
   name: string
 }
 
+export type AccountType = {
+  id: string
+  code: string
+  label: string
+  sort_order: number
+}
+
 export type Account = {
   id: string
   institution_id: string
+  account_type_id: string
+  account_type_label: string
   name: string
   currency: string
 }
@@ -42,4 +51,21 @@ export function listAccounts(): Promise<Account[]> {
 
 export function listInstitutions(): Promise<Institution[]> {
   return request<Institution[]>('/institutions')
+}
+
+export function listAccountTypes(): Promise<AccountType[]> {
+  return request<AccountType[]>('/account-types')
+}
+
+export function createInstitution(name: string): Promise<Institution> {
+  return request<Institution>('/institutions', { method: 'POST', bodyJson: { name } })
+}
+
+export function createAccount(body: {
+  institution_id: string
+  account_type_id: string
+  name: string
+  currency?: string
+}): Promise<Account> {
+  return request<Account>('/accounts', { method: 'POST', bodyJson: body })
 }

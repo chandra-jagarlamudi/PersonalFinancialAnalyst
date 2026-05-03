@@ -18,7 +18,7 @@ from pfa.ingest import (
     statement_exists_by_hash,
     update_statement_counts,
 )
-from pfa.pdf_cc import outcome_requires_hitl, parse_targeted_credit_card_pdf_stub
+from pfa.pdf_cc import outcome_requires_hitl, parse_targeted_credit_card_pdf
 from pfa.storage import sha256_hex, store
 
 JOB_TYPE_CSV = "csv-import"
@@ -340,7 +340,7 @@ def process_pdf_job(job_id: UUID) -> None:
             _mark_step(conn, job_id, "normalize", status="running")
             conn.commit()
 
-        outcome = parse_targeted_credit_card_pdf_stub(raw)
+        outcome = parse_targeted_credit_card_pdf(raw)
         rows = list(outcome.rows)
 
         if outcome_requires_hitl(outcome):
@@ -353,6 +353,20 @@ def process_pdf_job(job_id: UUID) -> None:
                     item_count=len(rows),
                     detail=outcome.notes,
                 )
+                advisory_lock_statement_ingest(conn, account_id, sha256)
+                existing = statement_exists_by_hash(conn, account_id, sha256)
+                if existing is not None:
+                    statement_id = UUID(existing["id"])
+                else:
+                    statement_id = record_statement(
+                        conn,
+                        account_id,
+                        filename,
+                        sha256,
+                        file_path,
+                        byte_size,
+                    )
+                    update_statement_counts(conn, statement_id, 0, 0)
                 for step_key in ("dedupe", "categorize", "persist"):
                     _mark_step(
                         conn,
@@ -370,6 +384,7 @@ def process_pdf_job(job_id: UUID) -> None:
                         f"rows={len(rows)} notes={outcome.notes}"
                     ),
                     parsed_rows=len(rows),
+                    statement_id=statement_id,
                     mark_finished=True,
                 )
                 conn.commit()

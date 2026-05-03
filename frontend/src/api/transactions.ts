@@ -12,6 +12,21 @@ export type Transaction = {
   created_at: string
 }
 
+export type TransactionSort =
+  | 'date_desc'
+  | 'date_asc'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'description_asc'
+  | 'description_desc'
+  | 'category_asc'
+  | 'category_desc'
+
+export type TransactionListResponse = {
+  items: Transaction[]
+  total: number
+}
+
 export type Rule = {
   id: string
   category_id: string
@@ -44,14 +59,18 @@ export function listTransactions(params?: {
   uncategorized?: boolean
   limit?: number
   offset?: number
-}): Promise<Transaction[]> {
+  q?: string
+  sort?: TransactionSort
+}): Promise<TransactionListResponse> {
   const search = new URLSearchParams()
   if (params?.account_id) search.set('account_id', params.account_id)
   if (params?.uncategorized) search.set('uncategorized', 'true')
   if (params?.limit != null) search.set('limit', String(params.limit))
   if (params?.offset != null) search.set('offset', String(params.offset))
+  if (params?.q != null && params.q.trim() !== '') search.set('q', params.q.trim())
+  if (params?.sort) search.set('sort', params.sort)
   const qs = search.toString()
-  return request<Transaction[]>(`/transactions${qs ? `?${qs}` : ''}`)
+  return request<TransactionListResponse>(`/transactions${qs ? `?${qs}` : ''}`)
 }
 
 export function updateTransactionCategory(txId: string, categoryId: string): Promise<void> {

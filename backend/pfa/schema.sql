@@ -28,6 +28,32 @@ CREATE TABLE IF NOT EXISTS accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS account_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO account_types (code, label, sort_order) VALUES
+  ('checking', 'Checking', 10),
+  ('savings', 'Savings', 20),
+  ('credit_card', 'Credit Card', 30),
+  ('mortgage', 'Mortgage', 40),
+  ('trading', 'Trading', 50),
+  ('other', 'Other', 990)
+ON CONFLICT (code) DO NOTHING;
+
+ALTER TABLE accounts
+  ADD COLUMN IF NOT EXISTS account_type_id UUID REFERENCES account_types(id);
+
+UPDATE accounts
+SET account_type_id = (SELECT id FROM account_types WHERE code = 'other' LIMIT 1)
+WHERE account_type_id IS NULL;
+
+ALTER TABLE accounts
+  ALTER COLUMN account_type_id SET NOT NULL;
+
 -- Slice 4: durable async ingest job queue.
 CREATE TABLE IF NOT EXISTS ingest_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

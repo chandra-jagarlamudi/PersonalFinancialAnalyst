@@ -34,7 +34,7 @@ from pfa.ingest import (
 )
 from pfa.ingest_jobs import dispatch_ingest_job_sync, recoverable_job_ids
 from pfa.job_api import router as job_router
-from pfa.pdf_cc import parse_targeted_credit_card_pdf_stub, outcome_requires_hitl
+from pfa.pdf_cc import outcome_requires_hitl, parse_targeted_credit_card_pdf
 from pfa.setup_api import router as setup_router
 from pfa.storage import delete_file, sha256_hex, store
 from pfa.transactions_api import router as transactions_router
@@ -186,22 +186,58 @@ def ingest_pdf(
         if not account_exists(conn, account_id):
             raise HTTPException(status_code=404, detail="account not found")
 
-    outcome = parse_targeted_credit_card_pdf_stub(raw)
+    outcome = parse_targeted_credit_card_pdf(raw)
     hitl = outcome_requires_hitl(outcome)
 
-    if not hitl:
-        raise HTTPException(
-            status_code=501,
-            detail="PDF auto-ingest path not implemented yet (parser produced rows with sufficient confidence)",
+    if hitl:
+        return PdfIngestResponse(
+            inserted=0,
+            skipped_duplicates=0,
+            confidence=outcome.confidence,
+            requires_hitl=True,
+            parser_notes=outcome.notes,
+            statement_id=None,
         )
 
+    rows = list(outcome.rows)
+    sha256 = sha256_hex(raw)
+
+    with connect() as conn:
+        advisory_lock_statement_ingest(conn, account_id, sha256)
+
+        existing = statement_exists_by_hash(conn, account_id, sha256)
+        if existing:
+            return PdfIngestResponse(
+                inserted=existing["inserted"],
+                skipped_duplicates=existing["skipped_duplicates"],
+                confidence=outcome.confidence,
+                requires_hitl=False,
+                parser_notes=outcome.notes,
+                duplicate_statement=True,
+                statement_id=str(existing["id"]),
+            )
+
+        file_path = store(sha256, raw)
+
+        stmt_id = record_statement(
+            conn,
+            account_id,
+            file.filename or "upload.pdf",
+            sha256,
+            file_path,
+            len(raw),
+        )
+        inserted, skipped = ingest_rows(conn, account_id, rows, source_statement_id=stmt_id)
+        update_statement_counts(conn, stmt_id, inserted, skipped)
+        conn.commit()
+
     return PdfIngestResponse(
-        inserted=0,
-        skipped_duplicates=0,
+        inserted=inserted,
+        skipped_duplicates=skipped,
         confidence=outcome.confidence,
-        requires_hitl=hitl,
+        requires_hitl=False,
         parser_notes=outcome.notes,
-        statement_id=None,
+        statement_id=str(stmt_id),
     )
 
 

@@ -95,7 +95,14 @@ def test_same_file_under_different_account_is_not_a_duplicate(client, clean_db, 
         cur.execute("INSERT INTO institutions (id, name) VALUES (%s, %s)", (str(iid), "Bank"))
         for aid in (aid1, aid2):
             cur.execute(
-                "INSERT INTO accounts (id, institution_id, name, currency) VALUES (%s, %s, %s, %s)",
+                """
+                INSERT INTO accounts (id, institution_id, account_type_id, name, currency)
+                VALUES (
+                    %s, %s,
+                    (SELECT id FROM account_types WHERE code = 'checking' LIMIT 1),
+                    %s, %s
+                )
+                """,
                 (str(aid), str(iid), "Checking", "USD"),
             )
     clean_db.commit()

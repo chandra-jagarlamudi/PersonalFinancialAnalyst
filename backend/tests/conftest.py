@@ -80,8 +80,12 @@ def sample_account_id(clean_db):
         )
         cur.execute(
             """
-            INSERT INTO accounts (id, institution_id, name, currency)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO accounts (id, institution_id, account_type_id, name, currency)
+            VALUES (
+                %s, %s,
+                (SELECT id FROM account_types WHERE code = 'checking' LIMIT 1),
+                %s, %s
+            )
             """,
             (str(aid), str(iid), "Checking", "USD"),
         )

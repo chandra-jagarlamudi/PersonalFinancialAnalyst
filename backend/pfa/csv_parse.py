@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import BinaryIO
 
@@ -25,9 +25,22 @@ class ParsedCsvRow:
 
 _REQUIRED = frozenset({"transaction_date", "amount", "description"})
 
+_HEADER_ALIASES = {
+    "date": "transaction_date",
+    "txn_date": "transaction_date",
+    "posting_date": "posted_date",
+    "memo": "description",
+    "merchant": "description",
+    "payee": "description",
+}
+
 
 def _norm_header(h: str) -> str:
     return h.strip().lower().replace(" ", "_")
+
+
+def _canon_field(norm: str) -> str:
+    return _HEADER_ALIASES.get(norm, norm)
 
 
 def _parse_date(value: str, *, field: str) -> date:
@@ -36,8 +49,14 @@ def _parse_date(value: str, *, field: str) -> date:
         raise CsvParseError(f"empty {field}")
     try:
         return date.fromisoformat(raw)
-    except ValueError as e:
-        raise CsvParseError(f"invalid date for {field}: {raw!r}") from e
+    except ValueError:
+        pass
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    raise CsvParseError(f"invalid date for {field}: {raw!r}")
 
 
 def _parse_amount(value: str) -> Decimal:
@@ -55,7 +74,7 @@ def parse_csv_bytes(data: bytes) -> list[ParsedCsvRow]:
     reader = csv.DictReader(text)
     if reader.fieldnames is None:
         raise CsvParseError("missing header row")
-    fields = {_norm_header(h) for h in reader.fieldnames if h is not None}
+    fields = {_canon_field(_norm_header(h)) for h in reader.fieldnames if h is not None}
     missing = _REQUIRED - fields
     if missing:
         raise CsvParseError(f"missing required columns: {sorted(missing)}")
@@ -63,7 +82,7 @@ def parse_csv_bytes(data: bytes) -> list[ParsedCsvRow]:
     for i, raw in enumerate(reader, start=2):
         if raw is None:
             continue
-        row = {_norm_header(k): (v or "").strip() for k, v in raw.items() if k}
+        row = {_canon_field(_norm_header(k)): (v or "").strip() for k, v in raw.items() if k}
         if not any(row.values()):
             continue
         try:

@@ -1,7 +1,10 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import {
+  createAccount,
+  createInstitution,
   enqueueCsvImport,
   enqueuePdfImport,
+  listAccountTypes,
   listAccounts,
   listInstitutions,
   listStatements,
@@ -25,6 +28,15 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString()
 }
 
+function accountDisplayName(
+  a: Account,
+  institutions: Map<string, Institution>,
+): string {
+  const inst = institutions.get(a.institution_id)
+  const base = inst ? `${inst.name} — ${a.name}` : a.name
+  return `${base} (${a.account_type_label})`
+}
+
 export default function StatementsPage() {
   const [statements, setStatements] = useState<Statement[]>([])
   const [accounts, setAccounts] = useState<Map<string, Account>>(new Map())
@@ -38,6 +50,13 @@ export default function StatementsPage() {
   const [importHint, setImportHint] = useState<string | null>(null)
   const [importKind, setImportKind] = useState<ImportKind>('pdf')
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
+  const [setupInstitutionName, setSetupInstitutionName] = useState('')
+  const [setupAccountName, setSetupAccountName] = useState('')
+  const [setupBusy, setSetupBusy] = useState(false)
+  const [accountTypes, setAccountTypes] = useState<
+    Awaited<ReturnType<typeof listAccountTypes>>
+  >([])
+  const [setupAccountTypeId, setSetupAccountTypeId] = useState('')
 
   async function load() {
     setLoading(true)
@@ -46,15 +65,29 @@ export default function StatementsPage() {
       setStatements(data)
 
       try {
-        const [acctList, instList] = await Promise.all([listAccounts(), listInstitutions()])
+        const [acctList, instList, typesList] = await Promise.all([
+          listAccounts(),
+          listInstitutions(),
+          listAccountTypes(),
+        ])
         setAccounts(new Map(acctList.map(a => [a.id, a])))
         setInstitutions(new Map(instList.map(i => [i.id, i])))
+        setAccountTypes(typesList)
+        if (typesList.length > 0) {
+          setSetupAccountTypeId(prev => prev || typesList[0].id)
+        }
         if (acctList.length > 0) {
           setImportAccountId(prev => prev || acctList[0].id)
         }
-      } catch {
+      } catch (err) {
         setAccounts(new Map())
         setInstitutions(new Map())
+        setAccountTypes([])
+        setBanner({
+          type: 'error',
+          message:
+            err instanceof Error ? err.message : 'Failed to load accounts or institutions',
+        })
       }
     } catch (err) {
       setBanner({ type: 'error', message: err instanceof Error ? err.message : 'Failed to load statements' })
@@ -102,6 +135,35 @@ export default function StatementsPage() {
     }
   }
 
+  async function handleCreateAccount(event: FormEvent) {
+    event.preventDefault()
+    const instName = setupInstitutionName.trim()
+    const acctName = setupAccountName.trim()
+    if (!instName || !acctName || !setupAccountTypeId) return
+    setSetupBusy(true)
+    setBanner(null)
+    try {
+      const inst = await createInstitution(instName)
+      const acct = await createAccount({
+        institution_id: inst.id,
+        account_type_id: setupAccountTypeId,
+        name: acctName,
+        currency: 'USD',
+      })
+      setImportAccountId(acct.id)
+      setSetupInstitutionName('')
+      setSetupAccountName('')
+      await load()
+    } catch (err) {
+      setBanner({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Could not create institution or account',
+      })
+    } finally {
+      setSetupBusy(false)
+    }
+  }
+
   async function handleQueuedPdf(file: File | undefined) {
     if (!file || !importAccountId) return
     setImportBusy(true)
@@ -138,6 +200,64 @@ export default function StatementsPage() {
     <section className="panel">
       <h2>Statements</h2>
 
+      <form className="account-setup-card" onSubmit={event => void handleCreateAccount(event)}>
+        <h3>{accountOptions.length === 0 ? 'Add your first account' : 'Add another account'}</h3>
+        <p className="account-setup-lede">
+          {accountOptions.length === 0
+            ? 'Imports are tied to an account. Create an institution and account here, then you can queue CSV or PDF files below.'
+            : 'Create additional accounts under a new or existing institution. Each account uses a type from the catalog (Checking, Savings, …).'}
+        </p>
+        <div className="account-setup-fields">
+          <label>
+            Account type
+            <select
+              value={setupAccountTypeId}
+              onChange={event => setSetupAccountTypeId(event.target.value)}
+              disabled={setupBusy || accountTypes.length === 0}
+              aria-label="Account type"
+              required
+            >
+              {accountTypes.length === 0 ? (
+                <option value="">Loading types…</option>
+              ) : (
+                accountTypes.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <label>
+            Institution name
+            <input
+              type="text"
+              value={setupInstitutionName}
+              onChange={event => setSetupInstitutionName(event.target.value)}
+              placeholder="e.g. First Bank"
+              autoComplete="organization"
+              disabled={setupBusy}
+              required
+            />
+          </label>
+          <label>
+            Account name
+            <input
+              type="text"
+              value={setupAccountName}
+              onChange={event => setSetupAccountName(event.target.value)}
+              placeholder="e.g. Primary checking"
+              autoComplete="off"
+              disabled={setupBusy}
+              required
+            />
+          </label>
+        </div>
+        <button type="submit" className="account-setup-submit" disabled={setupBusy}>
+          {setupBusy ? 'Creating…' : 'Create and continue'}
+        </button>
+      </form>
+
       <div className="import-actions">
         <h3>Queue imports</h3>
         <p className="intro">
@@ -157,15 +277,11 @@ export default function StatementsPage() {
               {accountOptions.length === 0 ? (
                 <option value="">No accounts yet</option>
               ) : (
-                accountOptions.map(a => {
-                  const inst = institutions.get(a.institution_id)
-                  const label = inst ? `${inst.name} — ${a.name}` : a.name
-                  return (
-                    <option key={a.id} value={a.id}>
-                      {label}
-                    </option>
-                  )
-                })
+                accountOptions.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {accountDisplayName(a, institutions)}
+                  </option>
+                ))
               )}
             </select>
           </label>
@@ -265,8 +381,7 @@ export default function StatementsPage() {
                     {(() => {
                       const acct = accounts.get(s.account_id)
                       if (!acct) return s.account_id
-                      const inst = institutions.get(acct.institution_id)
-                      return inst ? `${inst.name} — ${acct.name}` : acct.name
+                      return accountDisplayName(acct, institutions)
                     })()}
                   </td>
                   <td>{s.filename}</td>
@@ -310,7 +425,6 @@ export default function StatementsPage() {
                 </tr>
                 {expandedStatementId === s.id ? (
                   <tr className="statement-detail-row" aria-label="Statement details">
-                    {/* colSpan must match the 7 header columns (Account, Filename, Uploaded, Size, Inserted, Skipped, Actions) */}
                     <td colSpan={7} className="statement-detail-cell">
                       <dl className="statement-detail-dl">
                         <div>

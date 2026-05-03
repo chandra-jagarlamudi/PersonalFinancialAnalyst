@@ -36,7 +36,7 @@ def _create_category(client, slug: str, name: str) -> str:
 def test_list_transactions_empty(client, sample_account_id, upload_dir):
     r = client.get("/transactions", params={"account_id": str(sample_account_id)})
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json() == {"items": [], "total": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,9 @@ def test_list_transactions_after_ingest(client, sample_account_id, upload_dir):
     _ingest(client, sample_account_id)
     r = client.get("/transactions", params={"account_id": str(sample_account_id)})
     assert r.status_code == 200
-    rows = r.json()
+    body = r.json()
+    rows = body["items"]
+    assert body["total"] == 2
     assert len(rows) == 2
 
     # Ordered by transaction_date DESC → 2025-01-02 first
@@ -78,7 +80,9 @@ def test_list_transactions_uncategorized_filter(client, sample_account_id, uploa
     _ingest(client, sample_account_id)
     r = client.get("/transactions", params={"uncategorized": "true"})
     assert r.status_code == 200
-    rows = r.json()
+    body = r.json()
+    rows = body["items"]
+    assert body["total"] == 2
     assert len(rows) == 2
     assert all(row["category_id"] is None for row in rows)
 
@@ -94,7 +98,9 @@ def test_list_transactions_uncategorized_filter_excludes_categorized(
     _ingest(client, sample_account_id)
     cid = _create_category(client, "groceries", "Groceries")
 
-    all_txs = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    all_body = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    all_txs = all_body["items"]
+    assert all_body["total"] == 2
     assert len(all_txs) == 2
     tx_to_categorize = all_txs[0]["id"]
 
@@ -106,8 +112,9 @@ def test_list_transactions_uncategorized_filter_excludes_categorized(
         "/transactions",
         params={"account_id": str(sample_account_id), "uncategorized": "true"},
     ).json()
-    assert len(uncategorized) == 1
-    assert uncategorized[0]["id"] != tx_to_categorize
+    assert uncategorized["total"] == 1
+    assert len(uncategorized["items"]) == 1
+    assert uncategorized["items"][0]["id"] != tx_to_categorize
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +126,8 @@ def test_update_category_reflected_in_list(client, sample_account_id, upload_dir
     _ingest(client, sample_account_id)
     cid = _create_category(client, "coffee", "Coffee")
 
-    all_txs = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    all_body = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
+    all_txs = all_body["items"]
     # coffee shop is the row with the lower amount (-5.00), date 2025-01-02 → first row (DESC order)
     coffee_tx = all_txs[0]
     assert "COFFEE" in coffee_tx["description_raw"].upper()
@@ -128,6 +136,6 @@ def test_update_category_reflected_in_list(client, sample_account_id, upload_dir
     assert r.status_code == 200
 
     updated = client.get("/transactions", params={"account_id": str(sample_account_id)}).json()
-    coffee_updated = next(tx for tx in updated if tx["id"] == coffee_tx["id"])
+    coffee_updated = next(tx for tx in updated["items"] if tx["id"] == coffee_tx["id"])
     assert coffee_updated["category_id"] == cid
     assert coffee_updated["category_name"] == "Coffee"
