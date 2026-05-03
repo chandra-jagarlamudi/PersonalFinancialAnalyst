@@ -318,6 +318,7 @@ That starts:
 
 - **`db`** on `127.0.0.1:${POSTGRES_PORT}`
 - **`api`** on `127.0.0.1:${API_PORT}`
+- **`frontend`** (Vite dev server) on `127.0.0.1:${FRONTEND_PORT}` — proxies `/api/*` to the API container (`API_PROXY_TARGET`).
 
 The API waits for the database to become healthy before starting. On startup, the backend applies the schema automatically if `DATABASE_URL` is configured.
 
@@ -345,7 +346,7 @@ With the default `.env.example`, the backend connects to PostgreSQL through `DAT
 
 ### 6. Run the frontend app shell (optional, recommended for slice 1)
 
-From another terminal:
+If **step 3** already started the **`frontend`** container, open `http://127.0.0.1:${FRONTEND_PORT:-5173}` and skip the commands below. Otherwise, from another terminal:
 
 ```bash
 cd frontend
